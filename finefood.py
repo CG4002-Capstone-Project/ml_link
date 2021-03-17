@@ -12,7 +12,11 @@ class FineFood():
         print("Opened serial port %s" % serial_port)
 
     def get_line(self):
-        line = self.ser.readline().decode().strip()
+        line = self.ser.readline()
+        if len(line) > 0:
+            line = line.decode().strip()
+        else:
+            return self.get_line()
 
         while (len(line) > 0 and line[0] != '#'):
             line = self.ser.readline().decode().strip()
