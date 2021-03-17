@@ -16,7 +16,7 @@ MOVES = [
         "idle"
 ]
 
-NUM_S_PER_MOVE = 75
+NUM_S_PER_MOVE = 125
 NUM_MOVES = 12
 
 def clr():
