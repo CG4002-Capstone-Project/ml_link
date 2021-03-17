@@ -11,6 +11,19 @@ class FineFood():
         self.ser.flushInput()
         print("Opened serial port %s" % serial_port)
 
+        # Initialization routine
+        line = self.ser.readline()
+        print(line)
+        line = self.ser.readline()
+        print(line)
+
+        self.ser.write("s".encode())
+
+        for _ in range(4):
+            line = self.ser.readline()
+            print(line)
+
+
     def get_line(self):
         line = self.ser.readline()
         if len(line) > 0:
@@ -18,15 +31,23 @@ class FineFood():
         else:
             return self.get_line()
 
-        while (len(line) > 0 and line[0] != '#'):
-            line = self.ser.readline().decode().strip()
-            print("Invalid message")
+        # status messages; print and get another line
+        if line[0] == '!':
+            print(line[1:])
+            return self.get_line()
 
-        return line[1:]
+        # acc/gyr data messages
+        if line[0] == '#':
+            return line[1:]
+
+        print("Invalid message")
+        print(line)
+
+        return self.get_line()
 
     def get_acc_gyr_data(self):
         line = self.get_line()
-        tokens = line.split(" ")[2:]
+        tokens = line.split(" ")
         return [float(token) for token in tokens]
 
 if __name__ == "__main__":
