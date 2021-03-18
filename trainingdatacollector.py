@@ -1,4 +1,4 @@
-from finefood import FineFood, SERIAL_PORT
+from intcomm import IntComm, SERIAL_PORT
 from random import randrange
 import time
 import os
@@ -57,7 +57,7 @@ if __name__ == "__main__":
         timeout = timeout - 1
         time.sleep(1)
 
-    finefood = FineFood(SERIAL_PORT)
+    intcomm = IntComm(SERIAL_PORT)
 
     for i in range(NUM_MOVES + 1):
         move = moves[randrange(len(moves))]
@@ -68,11 +68,11 @@ if __name__ == "__main__":
         data_c = 0
         while data_c < NUM_S_PER_MOVE:
             if i > 0:
-                point = finefood.get_acc_gyr_data()
+                point = intcomm.get_acc_gyr_data()
                 point.append(move)
                 data.append(point)
             else:
-                finefood.get_line()
+                intcomm.get_line()
 
             data_c = data_c + 1
 

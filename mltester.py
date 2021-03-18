@@ -1,4 +1,4 @@
-from finefood import FineFood, SERIAL_PORT
+from intcomm import IntComm, SERIAL_PORT
 import numpy as np
 import torch
 import torch.nn as nn
@@ -59,11 +59,11 @@ if __name__ == "__main__":
     print("Loading scaler")
     scaler = load(scaler_path)
 
-    finefood = FineFood(SERIAL_PORT)
+    intcomm = IntComm(SERIAL_PORT)
     data = []
 
     while True:
-        new_data = finefood.get_acc_gyr_data()
+        new_data = intcomm.get_acc_gyr_data()
         if len(data) > 49:
             data = data[-49:]
         data.append(new_data)

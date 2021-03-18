@@ -4,7 +4,7 @@ import math
 import random
 import traceback
 
-class Kopitiam():
+class DataCollector():
     def __init__(self, host, port, username, password):
         try:
             self.client = InfluxDBClient(host=host, port=port, username=username, password=password)
@@ -57,11 +57,11 @@ class Kopitiam():
 
 
 if __name__ == "__main__":
-    kopitiam = Kopitiam("localhost", 8086, "admin", "xilinx123")
+    data_collector = DataCollector("localhost", 8086, "admin", "xilinx123")
 
     for i in range(1000):
         print("inserting data")
-        kopitiam.insert_acc_data(int(time.time()), 1, math.sin(i), math.sin(i + 3), math.sin(i + 6))
-        kopitiam.insert_gyr_data(int(time.time()), 1, math.sin(i), math.sin(i + 3), math.sin(i + 6))
+        data_collector.insert_acc_data(int(time.time()), 1, math.sin(i), math.sin(i + 3), math.sin(i + 6))
+        data_collector.insert_gyr_data(int(time.time()), 1, math.sin(i), math.sin(i + 3), math.sin(i + 6))
         time.sleep(0.1)
 

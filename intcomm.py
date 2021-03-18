@@ -1,12 +1,12 @@
 import serial
 import os
 import time
-from kopitiam import Kopitiam
+from datacollector import DataCollector
 
 SERIAL_PORT = os.environ['SERIAL_PORT'] if 'SERIAL_PORT' in os.environ else 'No Serial Port Given'
 
 
-class FineFood():
+class IntComm():
     def __init__(self, serial_port, dancer = 1):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
@@ -24,7 +24,7 @@ class FineFood():
             line = self.ser.readline()
             print(line)
 
-        self.kopitiam = Kopitiam("localhost", 8086, "admin", "xilinx123")
+        self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
         self.dancer = dancer
 
 
@@ -54,19 +54,19 @@ class FineFood():
         tokens = line.split(" ")
 
         data = [float(token) for token in tokens]
-        self.kopitiam.insert_gyr_data(int(time.time()), self.dancer, data[0], data[1], data[2])
-        self.kopitiam.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
+        self.datacollector.insert_gyr_data(int(time.time()), self.dancer, data[0], data[1], data[2])
+        self.datacollector.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
 
         return data
 
 if __name__ == "__main__":
-    fine_food = FineFood(SERIAL_PORT)
+    int_comm = IntComm(SERIAL_PORT)
 
     count = 0
     start = time.time()
 
     while True:
-        line = fine_food.get_line()
+        line = int_comm.get_line()
         count = count + 1
 
         print(line)
