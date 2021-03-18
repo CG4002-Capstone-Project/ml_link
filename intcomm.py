@@ -3,8 +3,7 @@ import os
 import time
 from datacollector import DataCollector
 
-SERIAL_PORT = os.environ['SERIAL_PORT'] if 'SERIAL_PORT' in os.environ else 'No Serial Port Given'
-
+SERIAL_PORT = os.environ['SERIAL_PORT']
 
 class IntComm():
     def __init__(self, serial_port, dancer = 1):
@@ -24,9 +23,9 @@ class IntComm():
             line = self.ser.readline()
             print(line)
 
+        # for dashboard
         self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
         self.dancer = dancer
-
 
     def get_line(self):
         line = self.ser.readline()
@@ -49,6 +48,7 @@ class IntComm():
 
         return self.get_line()
 
+    # helper function when you don't need any other data (they are ignored)
     def get_acc_gyr_data(self):
         line = self.get_line()
         tokens = line.split(" ")
@@ -58,6 +58,7 @@ class IntComm():
         self.datacollector.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
 
         return data
+
 
 if __name__ == "__main__":
     int_comm = IntComm(SERIAL_PORT)
@@ -75,5 +76,4 @@ if __name__ == "__main__":
             end = time.time()
             print("Receiving data at %d Hz" % round(150/(end-start)))
             start = time.time()
-
 
