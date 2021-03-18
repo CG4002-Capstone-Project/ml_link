@@ -1,12 +1,13 @@
 import serial
 import os
 import time
+from kopitiam import Kopitiam
 
 SERIAL_PORT = os.environ['SERIAL_PORT'] if 'SERIAL_PORT' in os.environ else 'No Serial Port Given'
 
 
 class FineFood():
-    def __init__(self, serial_port):
+    def __init__(self, serial_port, dancer = 1):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
         print("Opened serial port %s" % serial_port)
@@ -22,6 +23,9 @@ class FineFood():
         for _ in range(4):
             line = self.ser.readline()
             print(line)
+
+        self.kopitiam = Kopitiam("localhost", 8086, "admin", "xilinx123")
+        self.dancer = dancer
 
 
     def get_line(self):
@@ -48,7 +52,12 @@ class FineFood():
     def get_acc_gyr_data(self):
         line = self.get_line()
         tokens = line.split(" ")
-        return [float(token) for token in tokens]
+
+        data = [float(token) for token in tokens]
+        self.kopitiam.insert_gyr_data(int(time.time()), self.dancer, data[0], data[1], data[2])
+        self.kopitiam.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
+
+        return data
 
 if __name__ == "__main__":
     fine_food = FineFood(SERIAL_PORT)
