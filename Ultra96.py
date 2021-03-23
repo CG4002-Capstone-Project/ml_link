@@ -14,7 +14,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-PORT = int(os.environ["DANCE_PORT"])
+PORT = os.environ.get("SERIAL_PORT", 8000)
 
 
 class Server(LineReceiver):

@@ -5,11 +5,11 @@ import serial
 
 from datacollector import DataCollector
 
-SERIAL_PORT = os.environ["SERIAL_PORT"]
+SERIAL_PORT = os.environ.get("SERIAL_PORT", "/dev/ttyACM0")
 
 
 class IntComm:
-    def __init__(self, serial_port, dancer=1):
+    def __init__(self, serial_port, dancer=1, dashboard=False):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
         print("Opened serial port %s" % serial_port)
@@ -27,8 +27,10 @@ class IntComm:
             print(line)
 
         # for dashboard
-        self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
-        self.dancer = dancer
+        self.dashboard = dashboard
+        if self.dashboard:
+            self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
+            self.dancer = dancer
 
     def get_line(self):
         line = self.ser.readline()
@@ -57,12 +59,13 @@ class IntComm:
         tokens = line.split(" ")
 
         data = [float(token) for token in tokens]
-        self.datacollector.insert_gyr_data(
-            int(time.time()), self.dancer, data[0], data[1], data[2]
-        )
-        self.datacollector.insert_acc_data(
-            int(time.time()), self.dancer, data[3], data[4], data[5]
-        )
+        if self.dashboard:
+            self.datacollector.insert_gyr_data(
+                int(time.time()), self.dancer, data[0], data[1], data[2]
+            )
+            self.datacollector.insert_acc_data(
+                int(time.time()), self.dancer, data[3], data[4], data[5]
+            )
 
         return data
 
