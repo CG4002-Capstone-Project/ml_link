@@ -8,15 +8,17 @@
 #
 # Reference: https://blog.eccouncil.org/what-is-ssh-port-forwarding/
 
-from intcomm import IntComm, SERIAL_PORT
 import os
 import socket
 
-PORT = int(os.environ['DANCE_PORT'])
-DANCER_ID = int(os.environ['DANCER_ID'])
-HOST = 'localhost'
+from intcomm import SERIAL_PORT, IntComm
 
-class Laptop():
+PORT = int(os.environ["DANCE_PORT"])
+DANCER_ID = int(os.environ["DANCER_ID"])
+HOST = "localhost"
+
+
+class Laptop:
     def __init__(self):
         self.intcomm = IntComm(SERIAL_PORT, DANCER_ID)
 

@@ -1,11 +1,12 @@
-from intcomm import IntComm, SERIAL_PORT
 import numpy as np
 import torch
 import torch.nn as nn
 from joblib import load
 
-class CNN(nn.Module):
+from intcomm import SERIAL_PORT, IntComm
 
+
+class CNN(nn.Module):
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv1d(6, 32, 5)
@@ -47,13 +48,14 @@ class CNN(nn.Module):
 
         return x
 
+
 if __name__ == "__main__":
     model_path = "cnn_model.pth"
     scaler_path = "cnn_std_scaler.bin"
 
     print("Loading model")
     model = CNN()
-    model.load_state_dict(torch.load(model_path, map_location='cpu'))
+    model.load_state_dict(torch.load(model_path, map_location="cpu"))
     model.eval()
 
     print("Loading scaler")
@@ -73,12 +75,12 @@ if __name__ == "__main__":
             num_instances, num_time_steps, num_features = inp.shape
             inp = np.reshape(inp, newshape=(-1, num_features))
             inp = scaler.transform(inp)
-            inp = np.reshape(inp, newshape=(num_instances, num_time_steps, num_features))
+            inp = np.reshape(
+                inp, newshape=(num_instances, num_time_steps, num_features)
+            )
             inp = torch.tensor(inp)
             out = model(inp.float())
             _, i = torch.max(out.data, 1)
 
             moves = ["hair", "sidepump", "gun", "idle", "logout"]
             print(moves[i.item()])
-
-

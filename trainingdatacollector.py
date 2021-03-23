@@ -1,41 +1,44 @@
-from intcomm import IntComm, SERIAL_PORT
-from random import randrange
-import time
 import os
+import time
+from random import randrange
+
+from intcomm import SERIAL_PORT, IntComm
 
 MOVES = [
-        # "dab",
-        # "elbowkick",
-        # "listen",
-        # "pointhigh",
-        "hair",
-        "gun",
-        "sidepump",
-        # "wipetable",
-        "logout",
-        "idle"
+    # "dab",
+    # "elbowkick",
+    # "listen",
+    # "pointhigh",
+    "hair",
+    "gun",
+    "sidepump",
+    # "wipetable",
+    "logout",
+    "idle",
 ]
 
 NUM_S_PER_MOVE = 125
 NUM_MOVES = 12
 
+
 def clr():
-    if os.name == 'posix':
-        _ = os.system('clear')
+    if os.name == "posix":
+        _ = os.system("clear")
     else:
-      _ = os.system('cls')
+        _ = os.system("cls")
+
 
 if __name__ == "__main__":
-    print("Dance Data Collection Script\n"
-          "============================\n")
+    print("Dance Data Collection Script\n" "============================\n")
 
     data = []
-
 
     # Get type
     line = ""
     while not (line == "m" or line == "s"):
-        line = input("Do you want to record multiple moves(m) or just a single move(s)? ")
+        line = input(
+            "Do you want to record multiple moves(m) or just a single move(s)? "
+        )
 
     moves = MOVES
     if line == "s":
@@ -51,7 +54,7 @@ if __name__ == "__main__":
         moves = [MOVES[smove]]
 
     timeout = 3
-    while (timeout > 0):
+    while timeout > 0:
         clr()
         print("Starting in %ds" % timeout)
         timeout = timeout - 1
@@ -89,6 +92,3 @@ if __name__ == "__main__":
         f = open("data.csv", "a+")
         f.write(data)
         f.close()
-
-
-

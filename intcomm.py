@@ -1,12 +1,15 @@
-import serial
 import os
 import time
+
+import serial
+
 from datacollector import DataCollector
 
-SERIAL_PORT = os.environ['SERIAL_PORT']
+SERIAL_PORT = os.environ["SERIAL_PORT"]
 
-class IntComm():
-    def __init__(self, serial_port, dancer = 1):
+
+class IntComm:
+    def __init__(self, serial_port, dancer=1):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
         print("Opened serial port %s" % serial_port)
@@ -35,12 +38,12 @@ class IntComm():
             return self.get_line()
 
         # status messages; print and get another line
-        if line[0] == '!':
+        if line[0] == "!":
             print(line[1:])
             return self.get_line()
 
         # acc/gyr data messages
-        if line[0] == '#':
+        if line[0] == "#":
             return line[1:]
 
         print("Invalid message")
@@ -54,8 +57,12 @@ class IntComm():
         tokens = line.split(" ")
 
         data = [float(token) for token in tokens]
-        self.datacollector.insert_gyr_data(int(time.time()), self.dancer, data[0], data[1], data[2])
-        self.datacollector.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
+        self.datacollector.insert_gyr_data(
+            int(time.time()), self.dancer, data[0], data[1], data[2]
+        )
+        self.datacollector.insert_acc_data(
+            int(time.time()), self.dancer, data[3], data[4], data[5]
+        )
 
         return data
 
@@ -74,6 +81,5 @@ if __name__ == "__main__":
 
         if count % 150 == 0:
             end = time.time()
-            print("Receiving data at %d Hz" % round(150/(end-start)))
+            print("Receiving data at %d Hz" % round(150 / (end - start)))
             start = time.time()
-
