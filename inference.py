@@ -15,8 +15,8 @@ class PositionDetection:
         self.skip_count = 0
 
         # constants
-        self.upper_position_threshold = 0.25
-        self.lower_position_threshold = 0.25
+        self.upper_position_threshold = 0.25 * 8192
+        self.lower_position_threshold = 0.25 * 8192
         self.verbose = verbose
 
     def get_mask(self, data):
@@ -85,7 +85,7 @@ class Inference:
         self, model, model_type, scaler, verbose, infer_dance=True, infer_position=True
     ):
         self.idle_window_size = 10
-        self.dance_window_size = 60
+        self.dance_window_size = 50
         self.total_window_size = 250
         self.idle_mode_data = collections.deque([], maxlen=self.idle_window_size)
         self.dance_data = collections.deque([], self.total_window_size)
@@ -99,7 +99,7 @@ class Inference:
         self.dance_detection = DanceDetection(model, model_type, scaler, verbose)
 
         # constants
-        self.dance_threshold = 1
+        self.dance_threshold = 1 * 100
         self.verbose = verbose
         self.skip_count_10 = 10
         self.infer_dance = infer_dance
@@ -109,14 +109,14 @@ class Inference:
         """
         appends readings to buffer
         """
-        gx, gy, gz, ax, ay, az = (
-            gx / 100,
-            gy / 100,
-            gz / 100,
-            ax / 8192,
-            ay / 8192,
-            az / 8192,
-        )
+        # gx, gy, gz, ax, ay, az = (
+        #     gx / 100,
+        #     gy / 100,
+        #     gz / 100,
+        #     ax / 8192,
+        #     ay / 8192,
+        #     az / 8192,
+        # )
         self.idle_mode_data.append([gx, gy, gz, ax, ay, az])
         if not self.is_idling:
             self.dance_data.append([gx, gy, gz, ax, ay, az])

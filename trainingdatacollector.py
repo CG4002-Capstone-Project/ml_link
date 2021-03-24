@@ -18,4 +18,4 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(data)
     df.columns = ["gx", "gy", "gz", "ax", "ay", "az"]
-    df.to_csv("data.csv", sep=",")
+    df.to_csv("sidepump5.csv", sep=",")
