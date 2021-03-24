@@ -1,17 +1,14 @@
 /* ============================================
 I2Cdev device library code is placed under the MIT license
 Copyright (c) 2012 Jeff Rowberg
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
-
 The above copyright notice and this permission notice shall be included in
 all copies or substantial portions of the Software.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -49,10 +46,27 @@ VectorInt16 aaWorld;    // [x, y, z]            world-frame accel sensor measure
 VectorFloat gravity;    // [x, y, z]            gravity vector
 float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
+VectorInt16 gyro;
+
 
 // ================================================================
 // ===                      INITIAL SETUP                       ===
 // ================================================================
+
+
+struct DataPacket
+{
+    int type;
+    int yaw;
+    int pitch;
+    int roll;
+    int accx;
+    int accy;
+    int accz;
+    int padding1;
+    int padding2;
+     int checksum;
+};
 
 void setup() {
     // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -111,12 +125,12 @@ void loop() {
 
     mpu.resetFIFO();
     fifoCount = mpu.getFIFOCount();
-  	while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+    while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
-  	while(fifoCount >= packetSize){
-  		mpu.getFIFOBytes(fifoBuffer, packetSize);
-  		fifoCount -= packetSize;
-  	}
+    while(fifoCount >= packetSize){
+      mpu.getFIFOBytes(fifoBuffer, packetSize);
+      fifoCount -= packetSize;
+    }
 
     // Packet format
     // #yaw pitch roll accx accy accz\n
@@ -127,23 +141,31 @@ void loop() {
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
-    Serial.print(ypr[0] * 180/M_PI);
+
+
+    mpu.dmpGetGyro(&gyro, fifoBuffer);
+    Serial.print(gyro.x);
     Serial.print(" ");
-    Serial.print(ypr[1] * 180/M_PI);
+    Serial.print(gyro.y);
     Serial.print(" ");
-    Serial.print(ypr[2] * 180/M_PI);
+    Serial.print(gyro.z);
     Serial.print(" ");
+
 
     // display real acceleration, adjusted to remove gravity
     mpu.dmpGetQuaternion(&q, fifoBuffer);
     mpu.dmpGetAccel(&aa, fifoBuffer);
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+
+
     Serial.print(aaReal.x);
     Serial.print(" ");
     Serial.print(aaReal.y);
     Serial.print(" ");
-    Serial.println(aaReal.z);
-
-    delay(30);
+    Serial.print(aaReal.z);
+    Serial.print(" ");
+    int checksum = gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z;
+    Serial.println(checksum);
+    delay(27);
 }
