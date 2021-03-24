@@ -12,51 +12,30 @@ warnings.filterwarnings("ignore")
 
 class PositionDetection:
     def __init__(self, verbose):
-        self.position_mode = False
-        self.position_direction = 0
+        self.skip_count = 0
 
         # constants
-        self.position_threshold = 0.15
+        self.upper_position_threshold = 0.25
+        self.lower_position_threshold = 0.25
         self.verbose = verbose
 
     def get_mask(self, data):
-        accx_mask = np.any(data[:, 3] > self.position_threshold)
-        accy_mask = np.any(data[:, 4] > self.position_threshold)
-        accz_mask = np.any(data[:, 5] > self.position_threshold)
-        acc_right_mask = accx_mask or accy_mask or accz_mask
+        az = data[-3:, 5]
 
-        accx_mask = np.any(data[:, 3] < -self.position_threshold)
-        accy_mask = np.any(data[:, 4] < -self.position_threshold)
-        accz_mask = np.any(data[:, 5] < -self.position_threshold)
-        acc_left_mask = accx_mask or accy_mask or accz_mask
+        a_upper_mask = np.any(az > self.upper_position_threshold)
+        a_lower_mask = np.any(az < -self.lower_position_threshold)
 
-        return acc_left_mask, acc_right_mask
+        return a_lower_mask, a_upper_mask
 
     def infer(self, data):
-        acc_left_mask, acc_right_mask = self.get_mask(data)
+        a_lower_mask, a_upper_mask = self.get_mask(data)
 
-        if self.position_mode:
-            if self.position_direction == -1 and acc_right_mask:
-                if self.verbose:
-                    print("left move detected")
-                self.position_mode = False
-                self.position_direction = 0
-                return True, "left"
-            if self.position_direction == 1 and acc_left_mask:
-                if self.verbose:
-                    print("right move detected")
-                self.position_mode = False
-                self.position_direction = 0
-                return True, "right"
-        else:
-            if acc_left_mask:
-                self.position_direction = -1
-                self.position_mode = True
-            if acc_right_mask:
-                self.position_direction = 1
-                self.position_mode = True
+        if a_upper_mask:
+            return "right"
+        if a_lower_mask:
+            return "left"
 
-        return False, 0
+        return None
 
 
 class DanceDetection:
@@ -67,7 +46,7 @@ class DanceDetection:
         self.verbose = verbose
         self.activities = ["gun", "sidepump", "hair"]
 
-    def infer(self, inputs):
+    def preprocess(self, inputs):
         inputs = np.array(
             [
                 [
@@ -82,6 +61,11 @@ class DanceDetection:
         )
         inputs = extract_raw_data_features(inputs)  # extract features
         inputs = scale_data(inputs, self.scaler)  # scale features
+        return inputs
+
+    def infer(self, inputs):
+        inputs = self.preprocess(inputs)
+
         if self.model_type == "dnn":
             inputs = torch.tensor(inputs)  # convert to tensor
             outputs = self.model(inputs.float())
@@ -91,83 +75,123 @@ class DanceDetection:
                 print(f"{dance_move} detected")
             return dance_move
         elif self.model_type == "fpga":
-            return "NA"
+            return "fpga not implemented"
         else:
             raise Exception("model is not supported")
 
 
 class Inference:
-    def __init__(self, model, model_type, scaler, verbose):
-        self.idle_window_size = 3
+    def __init__(
+        self, model, model_type, scaler, verbose, infer_dance=True, infer_position=True
+    ):
+        self.idle_window_size = 10
         self.dance_window_size = 60
-        self.total_window_size = 300
+        self.total_window_size = 250
         self.idle_mode_data = collections.deque([], maxlen=self.idle_window_size)
-        self.dance_data = collections.deque([], maxlen=self.total_window_size)
+        self.dance_data = collections.deque([], self.total_window_size)
         self.skip_count = 0
-        self.is_start = False
+        self.is_idling = True
+        self.is_still = True
+        self.idle_counter = 0
         self.counter = 0
 
         self.position_detection = PositionDetection(verbose)
         self.dance_detection = DanceDetection(model, model_type, scaler, verbose)
 
         # constants
-        self.dance_threshold = 15
+        self.dance_threshold = 1
         self.verbose = verbose
-        self.skip_interval = 30
+        self.skip_count_10 = 10
+        self.infer_dance = infer_dance
+        self.infer_position = infer_position
 
-    def append_readings(self, yaw, pitch, roll, accx, accy, accz):
-        self.idle_mode_data.append([yaw, pitch, roll, accx, accy, accz])
-        if self.is_start:
-            self.dance_data.append([yaw, pitch, roll, accx, accy, accz])
+    def append_readings(self, gx, gy, gz, ax, ay, az):
+        """
+        appends readings to buffer
+        """
+        gx, gy, gz, ax, ay, az = (
+            gx / 100,
+            gy / 100,
+            gz / 100,
+            ax / 8192,
+            ay / 8192,
+            az / 8192,
+        )
+        self.idle_mode_data.append([gx, gy, gz, ax, ay, az])
+        if not self.is_idling:
+            self.dance_data.append([gx, gy, gz, ax, ay, az])
 
-    def get_mask(self, data):
-        yaw_mask = np.any(data[:, 0] > self.dance_threshold)
-        pitch_mask = np.any(data[:, 1] > self.dance_threshold)
-        roll_mask = np.any(data[:, 2] > self.dance_threshold)
-        angle_front_mask = yaw_mask or pitch_mask or roll_mask
+    def is_dancer_still(self, data):
+        """
+        returns true if previous n gyroscope data are between 
+        the upper bound and lower bound
 
-        yaw_mask = np.any(data[:, 0] < -self.dance_threshold)
-        pitch_mask = np.any(data[:, 1] < -self.dance_threshold)
-        roll_mask = np.any(data[:, 2] < -self.dance_threshold)
-        angle_back_mask = yaw_mask or pitch_mask or roll_mask
+        note: reacts quickly if dancer moves but slowly if dance stops
+        """
+        gx, gy, gz = data[:, 0], data[:, 1], data[:, 2]
 
-        return angle_front_mask or angle_back_mask
+        gx_mask = np.all(np.abs(gx) < self.dance_threshold)
+        gy_mask = np.all(np.abs(gy) < self.dance_threshold)
+        gz_mask = np.all(np.abs(gz) < self.dance_threshold)
+        g_mask = gx_mask and gy_mask and gz_mask
+
+        return g_mask
 
     def infer(self):
-        if len(self.idle_mode_data) < self.idle_window_size or self.skip_count > 0:
-            self.skip_count = self.skip_count - 1 if self.skip_count > 0 else 0
+        # debounces between moves and positions for n skip_counts
+        if self.skip_count > 0:
+            self.skip_count = self.skip_count - 1
             return None
 
+        # fills up the buffer to detect idling
+        if len(self.idle_mode_data) < self.idle_window_size:
+            return None
+
+        # prepares data to check if dancer is still
         data = np.array(self.idle_mode_data)
+        is_still = self.is_dancer_still(data)
 
-        # infer left right moves if dancer is in idle mode
-        is_moving = self.get_mask(data)
-        if not self.is_start:
-            self.counter += 1
-            if self.counter % 10 == 0:
+        # checks if the dancer should start
+        if self.is_idling:
+            if self.idle_counter % 10 == 0:
                 print("idling")
-            if is_moving:
-                self.is_start = True
-                self.skip_count = self.skip_interval
+            self.idle_counter += 1
+            if not is_still:
+                self.is_idling = False
+                self.skip_count = self.skip_count_10 * 3
+                print("start")
+                self.clear()
             return None
 
-        if not is_moving:
-            is_move_detected, move = self.position_detection.infer(data)
-            if is_move_detected:
-                self.skip_count = self.skip_interval
-                return move
+        # checking is still
+        if self.counter % 10 == 0 and self.verbose:
+            print("still" if is_still else "dancing")
+        self.counter += 1
 
-        # infer dance moves if dancer is not in idle mode
-        if len(self.dance_data) < self.total_window_size:
-            return None
-        data = np.array(self.dance_data)[-self.dance_window_size :]
-        move = self.dance_detection.infer(data)
-        self.skip_count = self.skip_interval
-        return move
+        # infers dance positions or moves
+        if is_still:
+            if not self.infer_position:
+                return None
+            move = self.position_detection.infer(data)
+            if move:
+                self.skip_count = self.skip_count_10 * 2
+            return move
+        else:
+            self.skip_count = self.skip_count_10 * 3
+            if not self.infer_dance:
+                return None
+            if len(self.dance_data) < self.total_window_size:
+                return None
+            data = np.array(self.dance_data)[-self.dance_window_size :]
+            move = self.dance_detection.infer(data)
+            self.clear()
+            return move
+
+        return None
 
     def clear(self):
         self.idle_mode_data = collections.deque([], maxlen=self.idle_window_size)
-        self.dance_data = collections.deque([], maxlen=self.total_window_size)
+        self.dance_data = collections.deque([], self.total_window_size)
 
 
 def scale_data(data, scaler, is_train=False):

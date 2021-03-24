@@ -10,25 +10,19 @@ if __name__ == "__main__":
     verbose = True
     model, scaler = load_model(model_type, model_path, scaler_path)
 
-    inference = Inference(model, model_type, scaler, verbose)
+    inference = Inference(model, model_type, scaler, verbose, infer_dance=True)
     intcomm = IntComm(SERIAL_PORT)
     data = []
 
-    print("start")
-
     start_time = time.time()
     while True:
-        yaw, pitch, roll, accx, accy, accz = intcomm.get_acc_gyr_data()
-        inference.append_readings(
-            yaw, pitch, roll, accx / 8192, accy / 8192, accz / 8192
-        )
+        gx, gy, gz, ax, ay, az = intcomm.get_acc_gyr_data()
+        inference.append_readings(gx, gy, gz, ax, ay, az)
         result = inference.infer()
         if result:
             print(f"result: {result}")
-            if result == "left" or result == "right":
-                pass
-            else:
+            if not (result == "left" or result == "right"):
                 inference.clear()
                 end_time = time.time()
-                print("response time:", end_time - start_time)
+                print("response time:", int(end_time - start_time))
                 start_time = end_time
