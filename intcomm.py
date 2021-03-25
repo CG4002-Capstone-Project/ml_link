@@ -4,7 +4,8 @@ import time
 #from datacollector import DataCollector
 
 #SERIAL_PORT = os.environ['SERIAL_PORT']
-SERIAL_PORT = '/dev/ttyACM0'
+SERIAL_PORT_0 = '/dev/ttyACM0'
+SERIAL_PORT_1 = '/dev/ttyACM1'
 
 def check(line):
         try:
@@ -16,26 +17,25 @@ def check(line):
             return newline                
         except Exception as e:
             print (e)
-            return newline
+            return ""
 
 
 class IntComm():
     def __init__(self, serial_port, dancer = 1):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
+        time.sleep(.5)
         print("Opened serial port %s" % serial_port)
 
-        # Initialization routine
-        line = self.ser.readline()
-        print(line)
-        line = self.ser.readline()
-        print(line)
+        while True:
+            line = self.ser.readline()
+            print (line)
+            if (b'Send any character to begin DMP programming and demo:' in line):
+                break
+        
 
         self.ser.write("s".encode())
 
-        for _ in range(10):
-            line = self.ser.readline()
-            print ("waiting for 10s")
 
         # for dashboard
         #self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
@@ -50,26 +50,31 @@ class IntComm():
 
         #print ("kal")
         # status messages; print and get another line
-        if line[0] == '!':
-            print ("here")
-            print(line[1:])
-            return self.get_line()
-
-        # acc/gyr data messages
-        if line[0] == '#':
-            newline = check(line[1:])
-            if (newline != ""):
-                print ("checksum passed")
-                print (newline)
-                return newline
-            else:
-                print ("checksum failed")
+        try:
+            if line[0] == '!':
+                print ("here")
+                print(line[1:])
                 return self.get_line()
 
-        print("Invalid message")
-        print(line)
+            # acc/gyr data messages
+            if line[0] == '#':
+                newline = check(line[1:])
+                if (newline != ""):
+                    # print ("checksum passed")
+                    # print (newline)
+                    return newline
+                else:
+                    print ("checksum failed")
+                    return self.get_line()
 
-        return self.get_line()
+            print("Invalid message")
+            print(line)
+
+            return self.get_line()
+        except Exception as e:
+            print ("exception 1")
+            return self.get_line()
+
 
 
     # helper function when you don't need any other data (they are ignored)

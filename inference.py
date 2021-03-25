@@ -1,6 +1,6 @@
 import collections
 import warnings
-
+import time
 import numpy as np
 import torch
 import torch.nn as nn
@@ -82,7 +82,7 @@ class DanceDetection:
 
 class Inference:
     def __init__(
-        self, model, model_type, scaler, verbose, infer_dance=True, infer_position=True
+        self, model, model_type, scaler, verbose, infer_dance=True, infer_position=False
     ):
         self.idle_window_size = 10
         self.dance_window_size = 50
@@ -94,6 +94,7 @@ class Inference:
         self.is_still = True
         self.idle_counter = 0
         self.counter = 0
+        self.dance_time = None
 
         self.position_detection = PositionDetection(verbose)
         self.dance_detection = DanceDetection(model, model_type, scaler, verbose)
@@ -150,6 +151,7 @@ class Inference:
         # prepares data to check if dancer is still
         data = np.array(self.idle_mode_data)
         is_still = self.is_dancer_still(data)
+        self.is_still = is_still
 
         # checks if the dancer should start
         if self.is_idling:

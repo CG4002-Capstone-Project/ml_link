@@ -1,4 +1,4 @@
-from intcomm import IntComm, SERIAL_PORT
+from intcomm import IntComm, SERIAL_PORT_0, SERIAL_PORT_1
 import os
 import socket
 import time
@@ -30,8 +30,12 @@ class Client(threading.Thread):
         self.key = key
 
         self.dancer_positions = ["1", "2", "3"]
+        
+        serial_port = SERIAL_PORT_0
+        if (dancer_id == 1):
+            serial_port = SERIAL_PORT_1
 
-        self.intcomm = IntComm(SERIAL_PORT, DANCER_ID)
+        self.intcomm = IntComm(serial_port, dancer_id)
 
         # Create a TCP/IP socket and bind to port
         self.shutdown = threading.Event()
@@ -50,6 +54,7 @@ class Client(threading.Thread):
         offset = 0.0
         count = 0
         start = time.time()
+        t1 = time.time()
         
 
         while True:
@@ -59,7 +64,7 @@ class Client(threading.Thread):
                 start = time.time()
             count += 1
 
-            message_final = (str(dancer_id) + "|" + str(RTT) + "|" + str(offset) + "|" 
+            message_final = (str(dancer_id) + "|" + str(t1) + "|" + str(offset) + "|" 
                 + self.intcomm.get_line() + "|")
             print("Sending", message_final)
 
