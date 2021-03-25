@@ -32,69 +32,79 @@ PORT_NUM = [9091, 9092, 9093]
 # Group ID number
 GROUP_ID = 18
 
+class Dancers:
 
+    def __init__(self):
+        model_path = "/home/nwjbrandon/models/dnn_model.pth"
+        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
+        model_type = "dnn"
+        verbose = False
+        model, scaler = load_model(model_type, model_path, scaler_path)
 
+        self.inference0 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
+        self.inference1 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
+        self.inference2 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
 
-class Client(threading.Thread):
-    def __init__(self, ip_addr, port_num, group_id, key):
-        super(Client, self).__init__()
+    def append_readings(self, dancer_id, gx, gy, gz, ax, ay, az):
+        if dancer_id == 0:
+            self.inference0.append_readings(gx, gy, gz, ax, ay, az)
+        elif dancer_id == 1:
+            self.inference1.append_readings(gx, gy, gz, ax, ay, az)
+        elif dancer_id == 2:
+            self.inference2.append_readings(gx, gy, gz, ax, ay, az)
+        else:
+            raise Exception("dancer_id not defined")
 
-        self.idx = 0
-        self.timeout = 60
-        self.has_no_response = False
-        self.connection = None
-        self.timer = None
-        self.logout = False
+    def get_is_still(self, dancer_id):
+        if dancer_id == 0:
+            return self.inference0.is_still
+        elif dancer_id == 1:
+            return self.inference1.is_still
+        elif dancer_id == 2:
+            return self.inference2.is_still
+        else:
+            raise Exception("dancer_id not defined")
 
-        self.group_id = group_id
-        self.key = key
+    def get_dance_time(self, dancer_id):
+        if dancer_id == 0:
+            return self.inference0.dance_time
+        elif dancer_id == 1:
+            return self.inference1.dance_time
+        elif dancer_id == 2:
+            return self.inference2.dance_time
+        else:
+            raise Exception("dancer_id not defined")
 
-        self.dancer_positions = ["1", "2", "3"]
+    def get_inference(self, dancer_id):
+        if dancer_id == 0:
+            return self.inference0.infer()
+        elif dancer_id == 1:
+            return self.inference1.infer()
+        elif dancer_id == 2:
+            return self.inference2.infer()
+        else:
+            raise Exception("dancer_id not defined")
 
-        # Create a TCP/IP socket and bind to port
-        self.shutdown = threading.Event()
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_address = (ip_addr, port_num)
+    def set_skip_count(self, dancer_id, skip_count):
+        if dancer_id == 0:
+            self.inference0.skip_count = skip_count
+        elif dancer_id == 1:
+            self.inference1.skip_count = skip_count
+        elif dancer_id == 2:
+            self.inference2.skip_count = skip_count
+        else:
+            raise Exception("dancer_id not defined")
 
-        print(
-            "Start connecting... server address: %s port: %s" % server_address,
-            file=sys.stderr,
-        )
-        self.socket.connect(server_address)
-        print("Connected")
+    def set_dance_time(self, dancer_id, dance_time):
+        if dancer_id == 0:
+            self.inference0.dance_time = dance_time
+        elif dancer_id == 1:
+            self.inference1.dance_time = dance_time
+        elif dancer_id == 2:
+            self.inference2.dance_time = dance_time
+        else:
+            raise Exception("dancer_id not defined")      
 
-    # To encrypt the message, which is a string
-    def encrypt_message(self, message):
-        raw_message = "#" + message
-        print("raw_message: " + raw_message)
-        padded_raw_message = raw_message + " " * (
-            ENCRYPT_BLOCK_SIZE - (len(raw_message) % ENCRYPT_BLOCK_SIZE)
-        )
-        print("padded_raw_message: " + padded_raw_message)
-        iv = Random.new().read(AES.block_size)
-        secret_key = bytes(str(self.key), encoding="utf8")
-        cipher = AES.new(secret_key, AES.MODE_CBC, iv)
-        encrypted_message = base64.b64encode(
-            iv + cipher.encrypt(bytes(padded_raw_message, "utf8"))
-        )
-        print("encrypted_message: ", encrypted_message)
-        return encrypted_message
-
-    # To send the message to the sever
-    def send_message(self, message):
-        encrypted_message = self.encrypt_message(message)
-        print("Sending message:", encrypted_message)
-        self.socket.sendall(encrypted_message)
-
-    def receive_dancer_position(self):
-        dancer_position = self.socket.recv(1024)
-        msg = dancer_position.decode("utf8")
-        return msg
-
-    def stop(self):
-        self.connection.close()
-        self.shutdown.set()
-        self.timer.cancel()
 
 
 class Server(threading.Thread):
@@ -104,6 +114,7 @@ class Server(threading.Thread):
         port_num,
         group_id,
         secret_key,
+        dancers,
         n_moves=len(ACTIONS) * NUM_MOVE_PER_ACTION,
     ):
         super(Server, self).__init__()
@@ -133,9 +144,6 @@ class Server(threading.Thread):
         self.logout = False
 
         self.dancer_positions = ["1", "2", "3"]
-        # self.dancer_start_time0 = None
-        # self.dancer_start_time1 = None
-        # self.dancer_start_time2 = None
         self.sync_delay = 0
 
         # Create a TCP/IP socket and bind to port
@@ -153,17 +161,9 @@ class Server(threading.Thread):
         self.BUFFER = []
         self.idle_state = True
         self.idle_index = 0
+        self.dancers = dancers
 
-        model_path = "/home/nwjbrandon/models/dnn_model.pth"
-        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
-        model_type = "dnn"
-        verbose = True
-        model, scaler = load_model(model_type, model_path, scaler_path)
 
-        self.inference0 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
-        self.inference1 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
-        # self.inference2 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
-        self.multi_inferences = [self.inference0, self.inference1]
 
     def decrypt_message(self, cipher_text):
         # The data format which will be used here will be "raw data | t0 | RTT | offset | start_flag | muscle_fatigue"
@@ -179,7 +179,6 @@ class Server(threading.Thread):
         decrypted_message = bytes(decrypted_message[1:], "utf8").decode("utf8")
 
         messages = decrypted_message.split("|")
-        # print("messages decrypted:"+str(messages))
 
         dancer_id, t1, offset, raw_data = messages[:MESSAGE_SIZE]
         return {
@@ -209,103 +208,48 @@ class Server(threading.Thread):
             
 
     def run(self):
-        try:
-            while not self.shutdown.is_set():
-                data = self.connection.recv(1024)
-                self.t2 = time.time()
-                if verbose:
-                    print("t2:" + str(self.t2))
+        # global inference0, inference1
 
-                if data:
-                    try:
-                        msg = data.decode("utf8")
-                        decrypted_message = self.decrypt_message(msg)
-                        dancer_id = int(decrypted_message["dancer_id"])
-                        # print(dancer_id, self.multi_inferences[dancer_id].is_still)
+        while not self.shutdown.is_set():
+            data = self.connection.recv(1024)
+            self.t2 = time.time()
+            if verbose:
+                print("t2:" + str(self.t2))
+
+            if data:
+                try:
+                    msg = data.decode("utf8")
+                    decrypted_message = self.decrypt_message(msg)
+                    dancer_id = int(decrypted_message["dancer_id"])
+
+                    if self.dancers.get_is_still(dancer_id) == False and self.dancers.get_dance_time(dancer_id) == None:
+                        dance_time = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"])) 
+                        self.dancers.set_dance_time(dancer_id, dance_time)
+
+
+                    if self.dancers.get_dance_time(0) != None and self.dancers.get_dance_time(1) != None:
+                        sync_delay = self.calculate_sync_delay(self.dancers.get_dance_time(0), self.dancers.get_dance_time(1), None)
+                        self.dancers.set_dance_time(0, None)
+                        self.dancers.set_dance_time(1, None)
+                        print("sync delay", sync_delay)
+                        self.dancers.set_skip_count(0, 60)
+                        self.dancers.set_skip_count(1, 60)
                         
-                            
-                        if dancer_id == 0 and self.inference0.is_still == False and self.inference0.dance_time == None:
-                            self.inference0.dance_time = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"])) 
-                            # self.dancer_start_time0 = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"]))
-                            print("dance0 dancer time", self.inference0.dance_time)
+                    raw_data = decrypted_message["raw_data"]
+                    gx, gy, gz, ax, ay, az  = [float(x) for x in raw_data.split(" ")]
 
-                        elif dancer_id == 1 and self.inference1.is_still == False and self.inference1.dance_time == None:
-                            self.inference1.dance_time = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"])) 
-                            print("dance1 dancer time", self.inference1.dance_time)
-                            # self.dancer_start_time1 = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"]))
-                        else:
-                            pass
-                            # self.inference2.dance_time = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"])) 
+                    self.dancers.append_readings(dancer_id, gx, gy, gz, ax, ay, az)
+                    result = self.dancers.get_inference(dancer_id)
 
-                            # self.dancer_start_time2 = self.calculate_Ultra96_time(float(decrypted_message["t1"]), float(decrypted_message["offset"]))
-                        print(self.inference0.dance_time!= None, self.inference1.dance_time!=None)
-                        if self.inference0.dance_time!= None and self.inference1.dance_time!=None:
-                            #TODO: Send the sync_delay to the eval_server.
-                            print(self.inference0.dance_time, self.inference1.dance_time)
-                            self.sync_delay = self.calculate_sync_delay(self.inference0.dance_time, self.inference1.dance_time, None)
-                            self.inference0.dance_time = None
-                            self.inference1.dance_time = None
-                            # self.inference2.dance_time = None
-                            print("sync delay", self.sync_delay)
-                            self.inference0.skip_count = 30
-                            self.inference1.skip_count = 30
-                            # pprint("r")
+                    self.send_timestamp()
 
-                            
-
-                        if verbose:
-                            print(
-                                ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
-                                + "messages received from dancer "
-                                + str(decrypted_message["dancer_id"])
-                            )
-                            print(decrypted_message)
-                            print("sync_delay:", self.sync_delay)
-                        if dancer_id == 0:
-                            raw_data = decrypted_message["raw_data"]
-                            gx, gy, gz, ax, ay, az  = [float(x) for x in raw_data.split(" ")]
-
-                            self.inference0.append_readings(gx, gy, gz, ax, ay, az)
-                            result = self.inference0.infer()
-                            if result:
-                                print("dancer_id:", dancer_id)
-                                print(f"result: {result}")
-                                print("sync_delay:", self.sync_delay)
-                                
-                                if not (result == "left" or result == "right"):
-                                    self.inference0.clear()
-
-                        if dancer_id == 1:
-                            raw_data = decrypted_message["raw_data"]
-                            gx, gy, gz, ax, ay, az  = [float(x) for x in raw_data.split(" ")]
-
-                            self.inference1.append_readings(gx, gy, gz, ax, ay, az)
-                            result = self.inference1.infer()
-                            if result:
-                                print("dancer_id:", dancer_id)
-                                print(f"result: {result}")
-                                print("sync_delay:", self.sync_delay)
-                                
-                                if not (result == "left" or result == "right"):
-                                    self.inference1.clear()
-                                # end_time = time.time()
-                                # print("response time:", int(end_time - start_time))
-                                # start_time = end_time
+                except Exception:
+                    print(traceback.format_exc())
+            else:
+                print("no more data from", self.client_address)
+                self.stop()
 
 
-                        self.send_timestamp()
-
-                    except Exception:
-                        print(traceback.format_exc())
-                else:
-                    print("no more data from", self.client_address)
-                    self.stop()
-        except KeyboardInterrupt:
-            print("terminating program")
-            self.stop()
-        except Exception:
-            print("an error occured")
-            self.stop()
     def send_timestamp(self):
         self.t3 = time.time()
         timestamp = str(self.t2) + "|" + str(self.t3)
@@ -346,12 +290,11 @@ class Server(threading.Thread):
 
 
 def main(dancer_id, secret_key):
-    # if dancer_id == 0:
-    dancer_server0 = Server(IP_ADDRESS, PORT_NUM[0], GROUP_ID, secret_key)
-    # if dancer_id == 1:
-    dancer_server1 = Server(IP_ADDRESS, PORT_NUM[1], GROUP_ID, secret_key)
-    # if dancer_id == 2:
-    #     dancer_server2 = Server(IP_ADDRESS, PORT_NUM[2], GROUP_ID, secret_key)
+    dancers = Dancers()
+
+    dancer_server0 = Server(IP_ADDRESS, PORT_NUM[0], GROUP_ID, secret_key, dancers)
+    dancer_server1 = Server(IP_ADDRESS, PORT_NUM[1], GROUP_ID, secret_key, dancers)
+    # dancer_server2 = Server(IP_ADDRESS, PORT_NUM[2], GROUP_ID, secret_key)
 
     dancer_server0.start()
     print(
@@ -454,41 +397,13 @@ if __name__ == "__main__":
     print("dashboard:", dashboard)
     print("cloudamqp_url:", cloudamqp_url)
 
-    if eval_server:
-        my_client = Client(ip_addr, port_num, group_id, key)
+    # model_path = "/home/nwjbrandon/models/dnn_model.pth"
+    # scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
+    # model_type = "dnn"
+    # verbose = False
+    # model, scaler = load_model(model_type, model_path, scaler_path)
 
-    if dashboard:
-        params = pika.URLParameters(cloudamqp_url)
-        params.socket_timeout = 5
-        connection = pika.BlockingConnection(params)  # Connect to CloudAMQP
-        channel = connection.channel()  # start a channel
-        channel.queue_declare(queue="results")  # Declare a queue
-
-    if debug:
-        scaler = load(scaler_path)
-        if model_type == "svc":
-            import svc_utils
-
-            model = load(model_path)
-        elif model_type == "dnn":
-            import torch
-
-            import dnn_utils
-
-            model = dnn_utils.DNN()
-            model.load_state_dict(torch.load(model_path))
-            model.eval()
-        else:
-            raise Exception("Model is not supported")
-    if production:
-        import common_utils
-        from technoedge import FIXED_FACTOR, TechnoEdge, get_power
-
-        scaler = load(scaler_path)
-        tc = TechnoEdge(bit_path)
-        f = open(model_path, "rb")
-        wts = np.load(f)
-        tc.put_weights(wts)
-        f.close()
+    # inference0 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
+    # inference1 = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
 
     main(dancer_id, secret_key)
