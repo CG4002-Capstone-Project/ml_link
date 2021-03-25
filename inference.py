@@ -1,6 +1,6 @@
 import collections
 import warnings
-import time
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -94,7 +94,6 @@ class Inference:
         self.is_still = True
         self.idle_counter = 0
         self.counter = 0
-        self.dance_time = None
 
         self.position_detection = PositionDetection(verbose)
         self.dance_detection = DanceDetection(model, model_type, scaler, verbose)
@@ -110,14 +109,6 @@ class Inference:
         """
         appends readings to buffer
         """
-        # gx, gy, gz, ax, ay, az = (
-        #     gx / 100,
-        #     gy / 100,
-        #     gz / 100,
-        #     ax / 8192,
-        #     ay / 8192,
-        #     az / 8192,
-        # )
         self.idle_mode_data.append([gx, gy, gz, ax, ay, az])
         if not self.is_idling:
             self.dance_data.append([gx, gy, gz, ax, ay, az])
