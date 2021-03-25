@@ -33,9 +33,9 @@ class IntComm():
 
         self.ser.write("s".encode())
 
-        for _ in range(4):
+        for _ in range(10):
             line = self.ser.readline()
-            print(line)
+            print ("waiting for 10s")
 
         # for dashboard
         #self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
@@ -48,8 +48,10 @@ class IntComm():
         else:
             return self.get_line()
 
+        #print ("kal")
         # status messages; print and get another line
         if line[0] == '!':
+            print ("here")
             print(line[1:])
             return self.get_line()
 
@@ -58,6 +60,7 @@ class IntComm():
             newline = check(line[1:])
             if (newline != ""):
                 print ("checksum passed")
+                print (newline)
                 return newline
             else:
                 print ("checksum failed")
