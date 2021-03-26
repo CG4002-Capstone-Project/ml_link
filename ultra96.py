@@ -50,7 +50,7 @@ def calculate_sync_delay(start_time0, start_time1, start_time2):
         return -1
 
 
-def decrypt_message(cipher_text, secret_key):
+def handle_decryption(cipher_text, secret_key):
     # data format: raw data | t0 | RTT | offset | start_flag | muscle_fatigue
     decoded_message = base64.b64decode(cipher_text)
     iv = decoded_message[:16]
@@ -115,37 +115,50 @@ class Server(threading.Thread):
     def handle_data(self, data):
         try:
             msg = data.decode("utf8")
-            decrypted_message = decrypt_message(msg, self.secret_key)
+            decrypted_message = handle_decryption(msg, self.secret_key)
             dancer_id = int(decrypted_message["dancer_id"])
+            assert dancer_id == self.dancer_id
 
-            if (not self.inference.is_still) and (not self.dance_start_time):
+            # send start dance time once
+            if (
+                (not self.inference.is_still)
+                and (not self.dance_start_time)
+                and (not self.inference.is_idling)
+            ):
                 self.dance_start_time = calculate_ultra96_time(
                     float(decrypted_message["t1"]), float(decrypted_message["offset"]),
                 )
+                mqueue.put(
+                    (self.dancer_id, self.dance_start_time, 0)
+                )  # 0 indicates sync delay message
 
-            if dancer_id == self.dancer_id:
-                raw_data = decrypted_message["raw_data"]
-                gx, gy, gz, ax, ay, az = [float(x) for x in raw_data.split(" ")]
+            raw_data = decrypted_message["raw_data"]
+            gx, gy, gz, ax, ay, az = [float(x) for x in raw_data.split(" ")]
 
-                self.inference.append_readings(gx, gy, gz, ax, ay, az)
-                self.inference.infer()
-                self.send_timestamp()
+            self.inference.append_readings(gx, gy, gz, ax, ay, az)
+            result = self.inference.infer()
+            if result is not None:
+                mqueue.put(
+                    (self.dancer_id, result, 1)
+                )  # 1 indicates dance moves or positions
+            self.send_timestamp()
 
         except Exception:
+            print(data)
             print(traceback.format_exc())
             self.send_timestamp()
 
     def run(self):
         while not self.shutdown.is_set():
-            if not queues[self.dancer_id].empty():
-                command = queues[self.dancer_id].get()
-                if command == 1:
-                    print("reseting", self.dancer_id)
-                    self.inference.is_still = True
-                    self.inference.skip_count = 60
-                    self.dance_start_time = None
+            # resets when result is sent to evaluation server
+            while not queues[self.dancer_id].empty():
+                queues[self.dancer_id].get()
+                print("reseting", self.dancer_id)
+                self.inference.is_still = True
+                self.inference.skip_count = 60
+                self.dance_start_time = None
 
-            # Handles data and inference
+            # handles data and inference
             data = self.connection.recv(1024)
             self.t2 = time.time()
             if data:
@@ -164,7 +177,7 @@ class Server(threading.Thread):
         self.timer = threading.Timer(self.timeout, self.send_timestamp)
         self.timer.start()
 
-        # Wait for a connection
+        # waits for a connection
         print("waiting for a connection")
         self.connection, client_address = self.socket.accept()
 
@@ -179,12 +192,32 @@ class Server(threading.Thread):
             print("AES key must be either 16, 24, or 32 bytes long")
             self.stop()
 
-        return client_address, secret_key  # forgot to return the secret key
+        return client_address, secret_key
 
     def stop(self):
         self.connection.close()
         self.shutdown.set()
         self.timer.cancel()
+        self.socket.close()
+
+
+def tabulate_results(
+    original_positions,
+    dance_start_times,
+    dance_moves,
+    dance_positions,
+    main_dancer_id=0,
+    guest_dancer_id=2,
+):
+    positions = original_positions.copy()  # make a copy of the original positions
+
+    dance_move = dance_moves[main_dancer_id]
+    sync_delay = calculate_sync_delay(*dance_start_times)
+    positions[0] += dance_positions[0]
+    positions[1] += dance_positions[1]
+    positions[2] += dance_positions[2]
+
+    return dance_move, sync_delay, positions
 
 
 def main(dancer_ids, secret_key):
@@ -233,17 +266,49 @@ def main(dancer_ids, secret_key):
             + str(GROUP_ID)
         )
 
+    counter = 0
+    dance_start_times = [None, None, None]  # timestamp of start of dancer dacing
+    dance_moves = [None, None, None]  # dance moves of dancer
+    dance_positions = [0, 0, 0]  # displacements of dancer
+    original_positions = [1, 2, 3]
     while True:
-        if dancer_server0.dance_start_time and dancer_server1.dance_start_time:
-            print(dancer_server0.dance_start_time, dancer_server1.dance_start_time)
-            sync_delay = calculate_sync_delay(
-                dancer_server0.dance_start_time, dancer_server1.dance_start_time, None,
+        time.sleep(0.5)
+
+        while not mqueue.empty():
+            dancer_id, action, action_type = mqueue.get()
+            print("received:", dancer_id, action, action_type)
+            # sets dance start time
+            if action_type == 0:
+                dance_start_times[dancer_id] = action
+            # sets dance position and moves
+            if action_type == 1:
+                if action == "left":
+                    dance_positions[dancer_id] -= 1
+                if action == "right":
+                    dance_positions[dancer_id] += 1
+                if action in ACTIONS:
+                    dance_moves[dancer_id] = action
+
+        # tabulate results when all is filled
+        if all(dance_start_times[:2]) and all(dance_moves[:2]):
+            dance_move, sync_delay, positions = tabulate_results(
+                original_positions,
+                dance_start_times,
+                dance_moves,
+                dance_positions,
+                main_dancer_id=0,
+                guest_dancer_id=2,
             )
+            print("sending:", dance_move, sync_delay, positions)
             # reset
+            counter = 0
+            dance_start_times = [None, None, None]  # timestamp of start of dancer dacing
+            dance_moves = [None, None, None]  # dance moves of dancer
+            dance_positions = [0, 0, 0]  # displacements of dancer
             for q in queues:
                 q.put(1)
-            print(sync_delay)
-            time.sleep(1)
+
+        counter += 1
 
 
 if __name__ == "__main__":
@@ -261,5 +326,6 @@ if __name__ == "__main__":
     print("secret_key:", secret_key)
 
     queues = [SimpleQueue(), SimpleQueue(), SimpleQueue()]
+    mqueue = SimpleQueue()
 
     main(dancer_ids, secret_key)
