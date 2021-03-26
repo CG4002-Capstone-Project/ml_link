@@ -1,10 +1,10 @@
 import pandas as pd
 
-from intcomm import SERIAL_PORT, IntComm
+from intcomm import IntComm
 
 if __name__ == "__main__":
 
-    intcomm = IntComm(SERIAL_PORT)
+    intcomm = IntComm("/dev/ttyACM1")
     data = []
     print("Start")
     try:
@@ -18,4 +18,4 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(data)
     df.columns = ["gx", "gy", "gz", "ax", "ay", "az"]
-    df.to_csv("sidepump5.csv", sep=",")
+    df.to_csv("green_left.csv", sep=",")

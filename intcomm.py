@@ -1,44 +1,45 @@
-import serial
-import os
 import time
-#from datacollector import DataCollector
+import traceback
 
-#SERIAL_PORT = os.environ['SERIAL_PORT']
-SERIAL_PORT = '/dev/ttyACM0'
+import serial
+
+# from datacollector import DataCollector
+
+# SERIAL_PORT = os.environ['SERIAL_PORT']
+SERIAL_PORT_0 = "/dev/ttyACM0"
+SERIAL_PORT_1 = "/dev/ttyACM1"
+
 
 def check(line):
-        try:
-            gyrx, gyry, gyz, accx, accy, accz, cksum = line.split(" ")
-            val = int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz)    
-            newline = ""
-            if (val == int(cksum)):
-                newline = gyrx + " " + gyry + " " + gyz + " " + accx + " " + accy + " " + accz
-            return newline                
-        except Exception as e:
-            print (e)
-            return newline
+    try:
+        gyrx, gyry, gyz, accx, accy, accz, cksum = line.split(" ")
+        val = int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz)
+        newline = ""
+        if val == int(cksum):
+            newline = (
+                gyrx + " " + gyry + " " + gyz + " " + accx + " " + accy + " " + accz
+            )
+        return newline
+    except Exception:
+        print(traceback.format_exc())
+        return ""
 
 
-class IntComm():
-    def __init__(self, serial_port, dancer = 1):
+class IntComm:
+    def __init__(self, serial_port, dancer=1):
         self.ser = serial.Serial(serial_port, 115200)
         self.ser.flushInput()
+        time.sleep(0.5)
         print("Opened serial port %s" % serial_port)
 
-        # Initialization routine
-        line = self.ser.readline()
-        print(line)
-        line = self.ser.readline()
-        print(line)
+        while True:
+            line = self.ser.readline()
+            print(line)
+            if b"Send any character to begin DMP programming and demo:" in line:
+                break
 
         self.ser.write("s".encode())
 
-        for _ in range(10):
-            line = self.ser.readline()
-            print ("waiting for 10s")
-
-        # for dashboard
-        #self.datacollector = DataCollector("localhost", 8086, "admin", "xilinx123")
         self.dancer = dancer
 
     def get_line(self):
@@ -48,45 +49,42 @@ class IntComm():
         else:
             return self.get_line()
 
-        #print ("kal")
-        # status messages; print and get another line
-        if line[0] == '!':
-            print ("here")
-            print(line[1:])
-            return self.get_line()
-
-        # acc/gyr data messages
-        if line[0] == '#':
-            newline = check(line[1:])
-            if (newline != ""):
-                print ("checksum passed")
-                print (newline)
-                return newline
-            else:
-                print ("checksum failed")
+        try:
+            # initial messages to ignore
+            if line[0] == "!":
+                print("here")
+                print(line[1:])
                 return self.get_line()
 
-        print("Invalid message")
-        print(line)
+            # acc/gyr data messages
+            if line[0] == "#":
+                newline = check(line[1:])
+                if newline != "":
+                    return newline
+                else:
+                    print("checksum failed")
+                    return self.get_line()
 
-        return self.get_line()
+            print("Invalid message")
+            print(line)
 
+            return self.get_line()
+        except Exception:
+            print(traceback.format_exc())
+            return self.get_line()
 
-    # helper function when you don't need any other data (they are ignored)
+    # helper function to get raw data
     def get_acc_gyr_data(self):
         line = self.get_line()
         tokens = line.split(" ")
 
         data = [float(token) for token in tokens]
-        #self.datacollector.insert_gyr_data(int(time.time()), self.dancer, data[0], data[1], data[2])
-        #self.datacollector.insert_acc_data(int(time.time()), self.dancer, data[3], data[4], data[5])
 
         return data
 
 
-
 if __name__ == "__main__":
-    int_comm = IntComm(SERIAL_PORT)
+    int_comm = IntComm(SERIAL_PORT_0)
 
     count = 0
     start = time.time()
@@ -99,6 +97,5 @@ if __name__ == "__main__":
 
         if count % 150 == 0:
             end = time.time()
-            print("Receiving data at %d Hz" % round(150/(end-start)))
+            print("Receiving data at %d Hz" % round(150 / (end - start)))
             start = time.time()
-

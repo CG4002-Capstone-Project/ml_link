@@ -1,18 +1,20 @@
-from intcomm import IntComm, SERIAL_PORT
-import os
-import socket
-import time
-import threading
 import argparse
 import base64
+import socket
+import threading
+import time
+
 from Crypto import Random
 from Crypto.Cipher import AES
 
+from intcomm import SERIAL_PORT_0, SERIAL_PORT_1, IntComm
+
 PORT = 9092
 DANCER_ID = 1
-HOST = 'localhost'
+HOST = "localhost"
 PORT_NUM = [9091, 9092, 9093]
 ENCRYPT_BLOCK_SIZE = 16
+
 
 class Client(threading.Thread):
     def __init__(self, group_id, key):
@@ -31,36 +33,46 @@ class Client(threading.Thread):
 
         self.dancer_positions = ["1", "2", "3"]
 
-        self.intcomm = IntComm(SERIAL_PORT, DANCER_ID)
+        serial_port = SERIAL_PORT_0
+        if dancer_id == 1:
+            serial_port = SERIAL_PORT_1
+
+        self.intcomm = IntComm(serial_port, dancer_id)
 
         # Create a TCP/IP socket and bind to port
         self.shutdown = threading.Event()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
 
-        # print('Start connecting... server address: %s port: %s' % server_address, file=sys.stderr)
         print("Start connecting>>>>>>>>>>>>")
         self.socket.connect(server_address)
         print("Connected")
 
-
     def run(self):
-        
+
         RTT = 0.0
         offset = 0.0
         count = 0
         start = time.time()
-        
+        t1 = time.time()
 
         while True:
             if count % 10 == 0:
                 end = time.time()
-                print("Receiving data at %d Hz" % round(150/(end-start)))
+                print("Receiving data at %d Hz" % round(150 / (end - start)))
                 start = time.time()
             count += 1
 
-            message_final = (str(dancer_id) + "|" + str(RTT) + "|" + str(offset) + "|" 
-                + self.intcomm.get_line() + "|")
+            message_final = (
+                str(dancer_id)
+                + "|"
+                + str(t1)
+                + "|"
+                + str(offset)
+                + "|"
+                + self.intcomm.get_line()
+                + "|"
+            )
             print("Sending", message_final)
 
             t1 = time.time()
@@ -72,28 +84,23 @@ class Client(threading.Thread):
             RTT = t4 - t3 + t2 - t1
             offset = (t2 - t1) - RTT / 2
 
-
     # To encrypt the message, which is a string
     def encrypt_message(self, message):
         raw_message = "#" + message
-        # print("raw_message: "+raw_message)
         padded_raw_message = raw_message + " " * (
             ENCRYPT_BLOCK_SIZE - (len(raw_message) % ENCRYPT_BLOCK_SIZE)
         )
-        # print("padded_raw_message: " + padded_raw_message)
         iv = Random.new().read(AES.block_size)
         secret_key = bytes(str(self.key), encoding="utf8")
         cipher = AES.new(secret_key, AES.MODE_CBC, iv)
         encrypted_message = base64.b64encode(
             iv + cipher.encrypt(bytes(padded_raw_message, "utf8"))
         )
-        # print("encrypted_message: ", encrypted_message)
         return encrypted_message
 
     # To send the message to the sever
     def send_message(self, message):
         encrypted_message = self.encrypt_message(message)
-        # print("Sending message:", encrypted_message)
         self.socket.sendall(encrypted_message)
 
     def receive_dancer_position(self):
@@ -120,12 +127,10 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dancer_id = args.dancer_id
 
-    ip_addr =  "127.0.0.1"
+    ip_addr = "127.0.0.1"
     port_num = PORT_NUM[dancer_id]
     group_id = "18"
     key = "1234123412341234"
     my_client = Client(group_id, key)
 
     my_client.run()
-
-    

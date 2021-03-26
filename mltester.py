@@ -1,7 +1,7 @@
 import time
 
 from inference import Inference, load_model
-from intcomm import SERIAL_PORT, IntComm
+from intcomm import IntComm
 
 if __name__ == "__main__":
     model_path = "/home/nwjbrandon/models/dnn_model.pth"
@@ -10,8 +10,10 @@ if __name__ == "__main__":
     verbose = True
     model, scaler = load_model(model_type, model_path, scaler_path)
 
-    inference = Inference(model, model_type, scaler, verbose, infer_dance=True, infer_position=True)
-    intcomm = IntComm(SERIAL_PORT)
+    inference = Inference(
+        model, model_type, scaler, verbose, infer_dance=False, infer_position=True
+    )
+    intcomm = IntComm("/dev/ttyACM1")
     data = []
 
     start_time = time.time()
