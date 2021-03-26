@@ -11,9 +11,9 @@ if __name__ == "__main__":
     model, scaler = load_model(model_type, model_path, scaler_path)
 
     inference = Inference(
-        model, model_type, scaler, verbose, infer_dance=False, infer_position=True
+        model, model_type, scaler, verbose, infer_dance=True, infer_position=True
     )
-    intcomm = IntComm("/dev/ttyACM1")
+    intcomm = IntComm("/dev/ttyACM0")
     data = []
 
     start_time = time.time()

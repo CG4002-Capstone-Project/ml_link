@@ -8,6 +8,7 @@ import traceback
 import warnings
 from queue import SimpleQueue
 
+import pika
 from Crypto.Cipher import AES
 
 from inference import Inference, load_model
@@ -26,6 +27,7 @@ ENCRYPT_BLOCK_SIZE = 16
 IP_ADDRESS = "127.0.0.1"
 # The port number for three different dancer's laptops
 PORT_NUM = [9091, 9092, 9093]
+DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
 # Group ID number
 GROUP_ID = 18
 
@@ -141,6 +143,10 @@ class Server(threading.Thread):
                 mqueue.put(
                     (self.dancer_id, result, 1)
                 )  # 1 indicates dance moves or positions
+                if result not in ["left", "right"]:
+                    mqueue.put(
+                        (self.dancer_id, self.inference.dance_detection.accuracy, 2)
+                    )  # 2 indicates accuracy
             self.send_timestamp()
 
         except Exception:
@@ -205,18 +211,23 @@ def tabulate_results(
     dance_start_times,
     dance_moves,
     dance_positions,
+    dance_accuracies,
     main_dancer_id=0,
     guest_dancer_id=2,
 ):
     positions = original_positions.copy()  # make a copy of the original positions
 
     dance_move = dance_moves[main_dancer_id]
+    accuracy = dance_accuracies[main_dancer_id]
     sync_delay = calculate_sync_delay(*dance_start_times)
-    positions[0] += dance_positions[0]
-    positions[1] += dance_positions[1]
-    positions[2] += dance_positions[2]
+    for i in range(3):
+        positions[i] += dance_positions[i]
+        if positions[i] < 0:
+            positions[i] = 0
+        if positions[i] > 2:
+            positions[i] = 2
 
-    return dance_move, sync_delay, positions
+    return dance_move, sync_delay, positions, accuracy
 
 
 def main(dancer_ids, secret_key):
@@ -265,9 +276,18 @@ def main(dancer_ids, secret_key):
             + str(GROUP_ID)
         )
 
+    CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
+    params = pika.URLParameters(CLOUDAMQP_URL)
+    params.socket_timeout = 5
+
+    connection = pika.BlockingConnection(params)
+    channel = connection.channel()
+    channel.queue_declare(queue="results")
+
     counter = 0
     dance_start_times = [None, None, None]  # timestamp of start of dancer dacing
     dance_moves = [None, None, None]  # dance moves of dancer
+    dance_accuracies = [None, None, None]
     dance_positions = [0, 0, 0]  # displacements of dancer
     original_positions = [1, 2, 3]
     while True:
@@ -287,23 +307,41 @@ def main(dancer_ids, secret_key):
                     dance_positions[dancer_id] += 1
                 if action in ACTIONS:
                     dance_moves[dancer_id] = action
+            # sets accuracies
+            if action_type == 2:
+                dance_accuracies[dancer_id] = action
 
         # tabulate results when all is filled
-        if all(dance_start_times[:2]) and all(dance_moves[:2]):
-            dance_move, sync_delay, positions = tabulate_results(
+        if (
+            all(dance_start_times[:2])
+            and all(dance_moves[:2])
+            and all(dance_accuracies[:2])
+        ):
+            dance_move, sync_delay, positions, accuracy = tabulate_results(
                 original_positions,
                 dance_start_times,
                 dance_moves,
                 dance_positions,
+                dance_accuracies,
                 main_dancer_id=0,
                 guest_dancer_id=2,
             )
-            print("sending:", dance_move, sync_delay, positions)
+            print("########## sending:", dance_move, sync_delay, positions)
+            # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
+            data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(4)}"
+            channel.basic_publish(
+                exchange="", routing_key="results", body=data,
+            )
             # reset
             counter = 0
-            dance_start_times = [None, None, None]  # timestamp of start of dancer dacing
+            dance_start_times = [
+                None,
+                None,
+                None,
+            ]  # timestamp of start of dancer dacing
             dance_moves = [None, None, None]  # dance moves of dancer
             dance_positions = [0, 0, 0]  # displacements of dancer
+            dance_accuracies = [None, None, None]
             for q in queues:
                 q.put(1)
 

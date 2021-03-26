@@ -4,6 +4,7 @@ import socket
 import threading
 import time
 
+import pika
 from Crypto import Random
 from Crypto.Cipher import AES
 
@@ -13,6 +14,7 @@ PORT = 9092
 DANCER_ID = 1
 HOST = "localhost"
 PORT_NUM = [9091, 9092, 9093]
+DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
 ENCRYPT_BLOCK_SIZE = 16
 
 
@@ -62,16 +64,13 @@ class Client(threading.Thread):
                 print("Receiving data at %d Hz" % round(150 / (end - start)))
                 start = time.time()
             count += 1
-
+            data = self.intcomm.get_line()
             message_final = (
-                str(dancer_id)
-                + "|"
-                + str(t1)
-                + "|"
-                + str(offset)
-                + "|"
-                + self.intcomm.get_line()
-                + "|"
+                str(dancer_id) + "|" + str(t1) + "|" + str(offset) + "|" + data + "|"
+            )
+            database_msg = str(dancer_id) + "|" + str(t1) + "|" + data + "|"
+            channel.basic_publish(
+                exchange="", routing_key=DB_QUEUES[dancer_id], body=database_msg
             )
             print("Sending", message_final)
 
@@ -119,6 +118,8 @@ class Client(threading.Thread):
         self.timer.cancel()
 
 
+# database_msg = "1|time.time()|[a,b,c,d,e,f]|"
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="External Comms")
@@ -126,6 +127,14 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     dancer_id = args.dancer_id
+
+    CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
+    params = pika.URLParameters(CLOUDAMQP_URL)
+    params.socket_timeout = 5
+
+    connection = pika.BlockingConnection(params)
+    channel = connection.channel()
+    channel.queue_declare(queue=DB_QUEUES[dancer_id])
 
     ip_addr = "127.0.0.1"
     port_num = PORT_NUM[dancer_id]

@@ -45,6 +45,7 @@ class DanceDetection:
         self.scaler = scaler
         self.verbose = verbose
         self.activities = ["gun", "sidepump", "hair"]
+        self.accuracy = -1
 
     def preprocess(self, inputs):
         inputs = np.array(
@@ -69,8 +70,14 @@ class DanceDetection:
         if self.model_type == "dnn":
             inputs = torch.tensor(inputs)  # convert to tensor
             outputs = self.model(inputs.float())
+
             _, predicted = torch.max(outputs.data, 1)
             dance_move = self.activities[predicted]
+
+            data = outputs.data
+            accuracy = torch.max(data[0]) / torch.sum(torch.abs(data[0]))
+            self.accuracy = accuracy.item() * 100
+
             if self.verbose:
                 print(f"{dance_move} detected")
             return dance_move
