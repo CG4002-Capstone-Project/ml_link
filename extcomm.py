@@ -1,6 +1,8 @@
 import argparse
 import base64
+import logging
 import socket
+import sys
 import threading
 import time
 
@@ -47,9 +49,9 @@ class Client(threading.Thread):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
 
-        print("Start connecting>>>>>>>>>>>>")
+        logger.info("Start connecting>>>>>>>>>>>>")
         self.socket.connect(server_address)
-        print("Connected")
+        logger.info("Connected")
 
     def run(self):
 
@@ -62,7 +64,7 @@ class Client(threading.Thread):
         while True:
             if count % 10 == 0:
                 end = time.time()
-                print("Receiving data at %d Hz" % round(150 / (end - start)))
+                logger.info("Receiving data at %d Hz" % round(150 / (end - start)))
                 start = time.time()
             count += 1
             data = self.intcomm.get_line()
@@ -95,10 +97,11 @@ class Client(threading.Thread):
                     + "|"
                 )
                 database_msg = str(dancer_id) + "|" + str(t1) + "|" + data + "|"
-                channel.basic_publish(
-                    exchange="", routing_key=DB_QUEUES[dancer_id], body=database_msg
-                )
-                print("Sending IMU", message_final)
+                if dashboard:
+                    channel.basic_publish(
+                        exchange="", routing_key=DB_QUEUES[dancer_id], body=database_msg
+                    )
+                logger.info(f"Sending IMU {message_final}")
                 t1 = time.time()
 
                 self.send_message(message_final)
@@ -116,7 +119,7 @@ class Client(threading.Thread):
                     mav, rms, freq, cksum = data.split(" ")
                     data = mav + " " + rms + " " + freq
                     message_emg = str(t1) + "|" + data
-                    print("Sending EMG", message_emg)
+                    logger.info(f"Sending EMG {message_emg}")
                     channel.basic_publish(
                         exchange="", routing_key="emg", body=message_emg
                     )
@@ -159,7 +162,6 @@ class Client(threading.Thread):
 # database_msg = "1|time.time()|[a,b,c,d,e,f]|"
 
 if __name__ == "__main__":
-
     parser = argparse.ArgumentParser(description="External Comms")
     parser.add_argument("--dancer_id", help="dancer id", type=int, required=True)
     parser.add_argument("--emg", default=False, help="collect emg data", type=bool)
@@ -167,6 +169,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
     dancer_id = args.dancer_id
     emg = args.emg
+
+    file_handler = logging.FileHandler(
+        filename=f'extcomms_{dancer_id}_{time.strftime("%Y%m%d-%H%M%S")}.log'
+    )
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    handlers = [file_handler, stdout_handler]
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+        handlers=handlers,
+    )
+    logger = logging.getLogger(f"extcomms_{dancer_id}")
 
     CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
     params = pika.URLParameters(CLOUDAMQP_URL)
@@ -189,6 +203,7 @@ if __name__ == "__main__":
     port_num = PORT_NUM[dancer_id]
     group_id = "18"
     key = "1234123412341234"
+    dashboard = False
     my_client = Client(group_id, key)
 
     my_client.run()
