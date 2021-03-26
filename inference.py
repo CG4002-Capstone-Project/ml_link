@@ -15,24 +15,24 @@ class PositionDetection:
         self.skip_count = 0
 
         # constants
-        self.upper_position_threshold = 0.25 * 8192
-        self.lower_position_threshold = 0.25 * 8192
+        self.upper_position_threshold = 0.2 * 100
+        self.lower_position_threshold = 0.2 * 100
         self.verbose = verbose
 
     def get_mask(self, data):
-        az = data[-3:, 5]
+        gy = data[-3:, 1]
 
-        a_upper_mask = np.any(az > self.upper_position_threshold)
-        a_lower_mask = np.any(az < -self.lower_position_threshold)
+        upper_mask = np.any(gy > self.upper_position_threshold)
+        lower_mask = np.any(gy < -self.lower_position_threshold)
 
-        return a_lower_mask, a_upper_mask
+        return lower_mask, upper_mask
 
     def infer(self, data):
-        a_lower_mask, a_upper_mask = self.get_mask(data)
+        lower_mask, upper_mask = self.get_mask(data)
 
-        if a_upper_mask:
+        if upper_mask:
             return "right"
-        if a_lower_mask:
+        if lower_mask:
             return "left"
 
         return None
@@ -144,7 +144,6 @@ class Inference:
         # prepares data to check if dancer is still
         data = np.array(self.idle_mode_data)
         is_still = self.is_dancer_still(data)
-        self.is_still = is_still
 
         # checks if the dancer should start
         if self.is_idling:
@@ -153,23 +152,26 @@ class Inference:
             self.idle_counter += 1
             if not is_still:
                 self.is_idling = False
-                self.skip_count = self.skip_count_10 * 5
+                self.skip_count = self.skip_count_10 * 3
                 print("start")
                 self.clear()
             return None
 
         # checking is still
         if self.counter % 10 == 0 and self.verbose:
-            print("still" if is_still else "dancing")
+            print("still" if self.is_still and not self.is_idling else "dancing")
         self.counter += 1
+        # infer dance moves only but not positions once dancing detected
+        if self.is_still and not self.is_idling:
+            self.is_still = is_still
 
         # infers dance positions or moves
-        if is_still:
+        if self.is_still:
             if not self.infer_position:
                 return None
             move = self.position_detection.infer(data)
             if move:
-                self.skip_count = self.skip_count_10 * 5
+                self.skip_count = self.skip_count_10 * 3
             return move
         else:
             if not self.infer_dance:
@@ -178,7 +180,7 @@ class Inference:
                 return None
             data = np.array(self.dance_data)[-self.dance_window_size :]
             move = self.dance_detection.infer(data)
-            self.skip_count = self.skip_count_10 * 10
+            self.skip_count = self.skip_count_10 * 6
             self.clear()
             return move
 
