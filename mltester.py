@@ -11,9 +11,9 @@ if __name__ == "__main__":
     model, scaler = load_model(model_type, model_path, scaler_path)
 
     inference = Inference(
-        model, model_type, scaler, verbose, infer_dance=True, infer_position=True
+        model, model_type, scaler, verbose, infer_dance=False, infer_position=True
     )
-    intcomm = IntComm("/dev/ttyACM0")
+    intcomm = IntComm("/dev/ttyACM1")
     data = []
 
     start_time = time.time()
@@ -28,3 +28,4 @@ if __name__ == "__main__":
                 end_time = time.time()
                 print("response time:", int(end_time - start_time))
                 start_time = end_time
+                inference.is_still = True

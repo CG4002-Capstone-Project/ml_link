@@ -313,9 +313,9 @@ def main(dancer_ids, secret_key):
 
         # tabulate results when all is filled
         if (
-            all(dance_start_times[:2])
-            and all(dance_moves[:2])
-            and all(dance_accuracies[:2])
+            all(dance_start_times[:1])
+            and all(dance_moves[:1])
+            and all(dance_accuracies[:1])
         ):
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 original_positions,
@@ -326,9 +326,9 @@ def main(dancer_ids, secret_key):
                 main_dancer_id=0,
                 guest_dancer_id=2,
             )
-            print("########## sending:", dance_move, sync_delay, positions)
             # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
-            data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(4)}"
+            data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
+            print("########## sending:", data)
             channel.basic_publish(
                 exchange="", routing_key="results", body=data,
             )

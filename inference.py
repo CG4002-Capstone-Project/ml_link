@@ -178,7 +178,7 @@ class Inference:
                 return None
             move = self.position_detection.infer(data)
             if move:
-                self.skip_count = self.skip_count_10 * 3
+                self.skip_count = self.skip_count_10 * 4
             return move
         else:
             if not self.infer_dance:
