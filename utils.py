@@ -32,6 +32,11 @@ def dance_move_display():
     print(f"{Colors.OKGREEN}{Colors.BOLD}START DANCING{Colors.ENDC}")
 
 
+def ready_display(count):
+    clear()
+    print(f"{Colors.FAIL}{Colors.BOLD}{count}...{Colors.ENDC}")
+
+
 def results_display(data):
     print()
     for datum in data:

@@ -15,16 +15,10 @@ from inference import Inference, load_model
 from utils import (
     dance_move_display,
     dance_position_display,
+    ready_display,
     reset_display,
     results_display,
 )
-
-# import logging
-
-# logging.basicConfig(level=logging.INFO)
-# logger = logging.getLogger()
-# logger.addHandler(logging.FileHandler(f'ultra96_{time.strftime("%Y%m%d-%H%M%S")}.log'))
-# print = logger.info
 
 warnings.filterwarnings("ignore")
 # Week 13 test: 8 moves, so 33 in total = (8*4) + 1 (logout)
@@ -216,7 +210,6 @@ class Server(threading.Thread):
                     self.is_changing_position = True
                     self.is_dancing = True
                     self.is_waiting = False
-                    self.inference.skip_count = RESET_DELAY
                 if command == COMMAND_CHANGE_POSITION:  # changing position
                     self.is_resetting = False
                     self.is_waiting = False
@@ -351,6 +344,7 @@ def main(dancer_ids, secret_key):
 
     start_time = time.time()
     stage = 0
+    counter = 3
     while True:
         while not mqueue.empty():
             dancer_id, action, action_type = mqueue.get()
@@ -371,6 +365,12 @@ def main(dancer_ids, secret_key):
 
         # start changing positions if all dancers are resetted
         if all(dancer_readiness[:1]) and stage == 0:
+            if counter > 0:
+                ready_display(counter)
+                time.sleep(1)
+                counter -= 1
+                continue
+
             for q in queues:
                 q.put(COMMAND_CHANGE_POSITION)
             start_time = time.time()
@@ -435,7 +435,9 @@ def main(dancer_ids, secret_key):
                     original_positions,
                 ]
             )
-            print("### tabulated result ###", data)
+            print("### tabulated result ###")
+            print(data)
+            time.sleep(3)
 
             # reset
             dancer_readiness = [False, False, False]
