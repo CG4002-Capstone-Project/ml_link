@@ -81,17 +81,17 @@ class Server(threading.Thread):
         super(Server, self).__init__()
         self.dancer_id = dancer_id
 
-        # Time stamps
-        # Indicate the time when the server receive the package
+        # time stamps
+        # indicates the time when the server receive the package
         self.t2 = 0
-        # Indicate the time when the server send the package
+        # indicates the time when the server send the package
         self.t3 = 0
 
         self.timeout = 60
         self.connection = None
         self.timer = None
 
-        # Create a TCP/IP socket and bind to port
+        # creates a TCP/IP socket and bind to port
         self.shutdown = threading.Event()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
@@ -99,11 +99,15 @@ class Server(threading.Thread):
         print("starting up on %s port %s" % server_address)
         self.socket.bind(server_address)
 
-        # Listen for incoming connections
+        # listens for incoming connections
         self.socket.listen(4)
         self.client_address, self.secret_key = self.setup_connection(secret_key)
 
         self.dance_start_time = None
+        self.is_resetting = True
+        self.is_changing_position = True
+        self.is_dancing = True
+        self.is_waiting = False
 
         model_path = "/home/nwjbrandon/models/dnn_model.pth"
         scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
@@ -120,34 +124,68 @@ class Server(threading.Thread):
             decrypted_message = handle_decryption(msg, self.secret_key)
             dancer_id = int(decrypted_message["dancer_id"])
             assert dancer_id == self.dancer_id
-
-            # send start dance time once
-            if (
-                (not self.inference.is_still)
-                and (not self.dance_start_time)
-                and (not self.inference.is_idling)
-            ):
-                self.dance_start_time = calculate_ultra96_time(
-                    float(decrypted_message["t1"]), float(decrypted_message["offset"]),
-                )
-                mqueue.put(
-                    (self.dancer_id, self.dance_start_time, 0)
-                )  # 0 indicates sync delay message
-
             raw_data = decrypted_message["raw_data"]
             gx, gy, gz, ax, ay, az = [float(x) for x in raw_data.split(" ")]
+            self.send_timestamp()
 
             self.inference.append_readings(gx, gy, gz, ax, ay, az)
-            result = self.inference.infer()
-            if result is not None:
-                mqueue.put(
-                    (self.dancer_id, result, 1)
-                )  # 1 indicates dance moves or positions
-                if result not in ["left", "right"]:
+            is_ready = self.inference.check_is_ready()
+
+            if not is_ready:
+                return
+
+            # waiting for reply from main thread
+            if self.is_waiting:
+                return
+
+            if self.is_resetting:
+                # all dancers have to start at the same time
+                self.is_waiting = True
+                # send to mqueue that is has resetted
+                mqueue.put((self.dancer_id, True, ACTION_TYPE_RESET))
+                return
+
+            if self.is_changing_position:
+                action = self.inference.infer_dancer_left_right()
+                if action is not None:
+                    self.inference.skip_count = 30
+                    # send to mqueue that that action is taken
+                    mqueue.put((self.dancer_id, action, ACTION_TYPE_POSITION))
+                return
+
+            if self.dance_start_time is None:
+                is_moving = self.inference.check_is_moving()
+                if is_moving:
+                    self.dance_start_time = time.time()
+                    self.inference.skip_count = 60
+                    # send to mqueue timestamp
                     mqueue.put(
-                        (self.dancer_id, self.inference.dance_detection.accuracy, 2)
-                    )  # 2 indicates accuracy
-            self.send_timestamp()
+                        (
+                            self.dancer_id,
+                            self.dance_start_time,
+                            ACTION_TYPE_START_DANCE_TIME,
+                        )
+                    )
+                return
+
+            if self.is_dancing:
+                action = self.inference.infer_dancer_moves()
+                if action is not None:
+                    # all dancers have to end at the same time
+                    self.is_waiting = True
+                    # prevent dance moves from added to queue
+                    self.is_dancing = False
+                    # send to mqueue that that action is taken
+                    mqueue.put((self.dancer_id, action, ACTION_TYPE_DANCE_MOVE))
+                    mqueue.put(
+                        (
+                            self.dancer_id,
+                            self.inference.dance_detection.accuracy,
+                            ACTION_TYPE_ACCURACY,
+                        )
+                    )
+
+                return
 
         except Exception:
             print(data)
@@ -158,10 +196,21 @@ class Server(threading.Thread):
         while not self.shutdown.is_set():
             # resets when result is sent to evaluation server
             while not queues[self.dancer_id].empty():
-                queues[self.dancer_id].get()
-                print("reseting", self.dancer_id)
-                self.inference.is_still = True
-                self.dance_start_time = None
+                command = queues[self.dancer_id].get()
+                if command == COMMAND_RESET:  # resetting
+                    print("reseting", self.dancer_id)
+                    self.dance_start_time = None
+                    self.is_resetting = True
+                    self.is_changing_position = True
+                    self.is_dancing = True
+                    self.is_waiting = False
+                    self.inference.skip_count = 60
+                if command == COMMAND_CHANGE_POSITION:  # changing position
+                    self.is_resetting = False
+                    self.is_waiting = False
+                if command == COMMAND_START_DANCING:  # dancing
+                    self.is_changing_position = False
+                    self.is_waiting = False
 
             # handles data and inference
             data = self.connection.recv(1024)
@@ -284,68 +333,78 @@ def main(dancer_ids, secret_key):
     channel = connection.channel()
     channel.queue_declare(queue="results")
 
-    counter = 0
-    dance_start_times = [None, None, None]  # timestamp of start of dancer dacing
-    dance_moves = [None, None, None]  # dance moves of dancer
-    dance_accuracies = [None, None, None]
-    dance_positions = [0, 0, 0]  # displacements of dancer
+    dancer_readiness = [False, False, False]
+    dancer_start_times = [None, None, None]
+    dancer_moves = [None, None, None]
+    dancer_accuracies = [None, None, None]
+    dancer_positions = [0, 0, 0]
     original_positions = [1, 2, 3]
-    while True:
-        time.sleep(0.5)
 
+    start_time = time.time()
+    stage = 0
+    while True:
+        time.sleep(0.1)
         while not mqueue.empty():
             dancer_id, action, action_type = mqueue.get()
             print("received:", dancer_id, action, action_type)
-            # sets dance start time
-            if action_type == 0:
-                dance_start_times[dancer_id] = action
-            # sets dance position and moves
-            if action_type == 1:
+            if action_type == ACTION_TYPE_RESET:  # resetting
+                dancer_readiness[dancer_id] = True
+            if action_type == ACTION_TYPE_POSITION:  # positions
                 if action == "left":
-                    dance_positions[dancer_id] -= 1
+                    dancer_positions[dancer_id] -= 1
                 if action == "right":
-                    dance_positions[dancer_id] += 1
-                if action in ACTIONS:
-                    dance_moves[dancer_id] = action
-            # sets accuracies
-            if action_type == 2:
-                dance_accuracies[dancer_id] = action
+                    dancer_positions[dancer_id] += 1
+            if action_type == ACTION_TYPE_START_DANCE_TIME:  # starting timestamp
+                dancer_start_times[dancer_id] = action
+            if action_type == ACTION_TYPE_DANCE_MOVE:  # moves
+                dancer_moves[dancer_id] = action
+            if action_type == ACTION_TYPE_ACCURACY:  # accuracies
+                dancer_accuracies[dancer_id] = action
 
-        # tabulate results when all is filled
-        if (
-            all(dance_start_times[:1])
-            and all(dance_moves[:1])
-            and all(dance_accuracies[:1])
-        ):
-            dance_move, sync_delay, positions, accuracy = tabulate_results(
-                original_positions,
-                dance_start_times,
-                dance_moves,
-                dance_positions,
-                dance_accuracies,
-                main_dancer_id=0,
-                guest_dancer_id=2,
-            )
-            # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
-            data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
-            print("########## sending:", data)
-            channel.basic_publish(
-                exchange="", routing_key="results", body=data,
-            )
-            # reset
-            counter = 0
-            dance_start_times = [
-                None,
-                None,
-                None,
-            ]  # timestamp of start of dancer dacing
-            dance_moves = [None, None, None]  # dance moves of dancer
-            dance_positions = [0, 0, 0]  # displacements of dancer
-            dance_accuracies = [None, None, None]
+        # start changing positions if all dancers are resetted
+        if all(dancer_readiness[:1]) and stage == 0:
             for q in queues:
-                q.put(1)
+                q.put(COMMAND_CHANGE_POSITION)
+            start_time = time.time()
+            stage = COMMAND_CHANGE_POSITION
+            continue
 
-        counter += 1
+        # start dancing after changing positions for some interval
+        if time.time() - start_time > 5 and stage == 1:
+            for q in queues:
+                q.put(COMMAND_START_DANCING)
+            stage = COMMAND_START_DANCING
+            continue
+
+        # tabulate inference and reset
+        if all(dancer_moves[:1]) and stage == 2:
+            # dance_move, sync_delay, positions, accuracy = tabulate_results(
+            #     original_positions,
+            #     dance_start_times,
+            #     dance_moves,
+            #     dance_positions,
+            #     dance_accuracies,
+            #     main_dancer_id=0,
+            #     guest_dancer_id=2,
+            # )
+            # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
+            # data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
+            # print("########## sending:", data)
+            # channel.basic_publish(
+            #     exchange="", routing_key="results", body=data,
+            # )
+
+            # reset
+            dancer_readiness = [False, False, False]
+            dancer_start_times = [None, None, None]
+            dancer_moves = [None, None, None]
+            dancer_accuracies = [None, None, None]
+            dancer_positions = [0, 0, 0]
+            original_positions = [1, 2, 3]
+            for q in queues:
+                q.put(COMMAND_RESET)
+            stage = COMMAND_RESET
+            continue
 
 
 if __name__ == "__main__":
@@ -361,6 +420,16 @@ if __name__ == "__main__":
 
     print("dancer_id:", dancer_ids)
     print("secret_key:", secret_key)
+
+    COMMAND_RESET = 0
+    COMMAND_CHANGE_POSITION = 1
+    COMMAND_START_DANCING = 2
+
+    ACTION_TYPE_RESET = 0
+    ACTION_TYPE_POSITION = 1
+    ACTION_TYPE_START_DANCE_TIME = 2
+    ACTION_TYPE_DANCE_MOVE = 3
+    ACTION_TYPE_ACCURACY = 4
 
     queues = [SimpleQueue(), SimpleQueue(), SimpleQueue()]
     mqueue = SimpleQueue()

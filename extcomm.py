@@ -42,8 +42,7 @@ class Client(threading.Thread):
         self.intcomm = IntComm(serial_port, dancer_id)
 
         # Create a TCP/IP socket and bind to port
-        
-        
+
         self.shutdown = threading.Event()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
@@ -51,8 +50,6 @@ class Client(threading.Thread):
         print("Start connecting>>>>>>>>>>>>")
         self.socket.connect(server_address)
         print("Connected")
-        
-        
 
     def run(self):
 
@@ -71,12 +68,31 @@ class Client(threading.Thread):
             data = self.intcomm.get_line()
             t1 = time.time()
             # IMU data
-            if (data[0] == "#"):
+            if data[0] == "#":
                 data = data[1:]
                 gyrx, gyry, gyrz, accx, accy, accz, cksum = data.split(" ")
-                data = gyrx + " " + gyry + " " + gyrz + " " + accx + " " + accy + " " +accz
+                data = (
+                    gyrx
+                    + " "
+                    + gyry
+                    + " "
+                    + gyrz
+                    + " "
+                    + accx
+                    + " "
+                    + accy
+                    + " "
+                    + accz
+                )
                 message_final = (
-                    str(dancer_id) + "|" + str(t1) + "|" + str(offset) + "|" + data + "|"
+                    str(dancer_id)
+                    + "|"
+                    + str(t1)
+                    + "|"
+                    + str(offset)
+                    + "|"
+                    + data
+                    + "|"
                 )
                 database_msg = str(dancer_id) + "|" + str(t1) + "|" + data + "|"
                 channel.basic_publish(
@@ -84,7 +100,7 @@ class Client(threading.Thread):
                 )
                 print("Sending IMU", message_final)
                 t1 = time.time()
-                
+
                 self.send_message(message_final)
                 timestamp = self.receive_timestamp()
                 t4 = time.time()
@@ -92,23 +108,19 @@ class Client(threading.Thread):
                 t3 = float(timestamp.split("|")[1][:18])
                 RTT = t4 - t3 + t2 - t1
                 offset = (t2 - t1) - RTT / 2
-                
-                
+
             # EMG data
-            elif (data[0] == "$"):
-                if (emg is True):
+            elif data[0] == "$":
+                if emg is True:
                     data = data[1:]
                     mav, rms, freq, cksum = data.split(" ")
                     data = mav + " " + rms + " " + freq
-                    message_emg = (
-                        str(t1) + "|" + data
-                    )
+                    message_emg = str(t1) + "|" + data
                     print("Sending EMG", message_emg)
                     channel.basic_publish(
-                        exchange="", routing_key='emg', body=message_emg
+                        exchange="", routing_key="emg", body=message_emg
                     )
 
-            
     # To encrypt the message, which is a string
     def encrypt_message(self, message):
         raw_message = "#" + message
@@ -164,16 +176,15 @@ if __name__ == "__main__":
     channel = connection.channel()
     channel.queue_declare(queue=DB_QUEUES[dancer_id])
 
-    if (emg is True):
+    if emg is True:
         CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
         params = pika.URLParameters(CLOUDAMQP_URL)
         params.socket_timeout = 5
 
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
-        channel.queue_declare(queue='emg')
+        channel.queue_declare(queue="emg")
 
-    
     ip_addr = "127.0.0.1"
     port_num = PORT_NUM[dancer_id]
     group_id = "18"

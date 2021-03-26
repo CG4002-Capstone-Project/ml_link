@@ -2,10 +2,14 @@ import collections
 import warnings
 
 import numpy as np
-import torch
-import torch.nn as nn
 from joblib import load
 from scipy import signal, stats
+
+try:
+    import torch
+    import torch.nn as nn
+except ModuleNotFoundError:
+    print("warning: torch cannot be found")
 
 warnings.filterwarnings("ignore")
 
@@ -19,7 +23,7 @@ class PositionDetection:
         self.lower_position_threshold = 0.2 * 100
         self.verbose = verbose
 
-    def get_mask(self, data):
+    def preprocess(self, data):
         gy = data[-3:, 1]
 
         upper_mask = np.any(gy > self.upper_position_threshold)
@@ -28,7 +32,7 @@ class PositionDetection:
         return lower_mask, upper_mask
 
     def infer(self, data):
-        lower_mask, upper_mask = self.get_mask(data)
+        lower_mask, upper_mask = self.preprocess(data)
 
         if upper_mask:
             return "right"
@@ -91,16 +95,9 @@ class Inference:
     def __init__(
         self, model, model_type, scaler, verbose, infer_dance=True, infer_position=False
     ):
-        self.idle_window_size = 10
-        self.dance_window_size = 50
-        self.total_window_size = 250
-        self.idle_mode_data = collections.deque([], maxlen=self.idle_window_size)
-        self.dance_data = collections.deque([], self.total_window_size)
+        self.window_size = 50
+        self.dance_data = collections.deque([], self.window_size)
         self.skip_count = 0
-        self.is_idling = True
-        self.is_still = True
-        self.idle_counter = 0
-        self.counter = 0
 
         self.position_detection = PositionDetection(verbose)
         self.dance_detection = DanceDetection(model, model_type, scaler, verbose)
@@ -108,7 +105,6 @@ class Inference:
         # constants
         self.dance_threshold = 1 * 100
         self.verbose = verbose
-        self.skip_count_10 = 10
         self.infer_dance = infer_dance
         self.infer_position = infer_position
 
@@ -116,86 +112,51 @@ class Inference:
         """
         appends readings to buffer
         """
-        self.idle_mode_data.append([gx, gy, gz, ax, ay, az])
-        if not self.is_idling:
-            self.dance_data.append([gx, gy, gz, ax, ay, az])
+        self.dance_data.append([gx, gy, gz, ax, ay, az])
 
-    def is_dancer_still(self, data):
+    def check_is_ready(self):
         """
-        returns true if previous n gyroscope data are between 
-        the upper bound and lower bound
+        skip between moves and positions for n skip_counts
+        """
+        if self.skip_count > 0:
+            self.skip_count = self.skip_count - 1
+            return False
+        return True
 
-        note: reacts quickly if dancer moves but slowly if dance stops
+    def check_is_moving(self):
         """
-        gx, gy, gz = data[:, 0], data[:, 1], data[:, 2]
+        returns true if dancer is moving
+        """
+        data = np.array(self.dance_data)
+        if len(data) < 5:
+            return False
+
+        gx, gy, gz = data[-3:, 0], data[-3:, 1], data[-3:, 2]
 
         gx_mask = np.all(np.abs(gx) < self.dance_threshold)
         gy_mask = np.all(np.abs(gy) < self.dance_threshold)
         gz_mask = np.all(np.abs(gz) < self.dance_threshold)
-        g_mask = gx_mask and gy_mask and gz_mask
+        is_still = gx_mask and gy_mask and gz_mask
 
-        return g_mask
+        return not is_still
 
-    def infer(self):
-        # debounces between moves and positions for n skip_counts
-        if self.skip_count > 0:
-            if self.verbose and self.skip_count % 10 == 0:
-                print("debouncing:", self.skip_count)
-            self.skip_count = self.skip_count - 1
+    def infer_dancer_left_right(self):
+        """
+        infers dance left right
+        """
+        data = np.array(self.dance_data)
+        if len(data) < 5:
             return None
+        return self.position_detection.infer(data)
 
-        # fills up the buffer to detect idling
-        if len(self.idle_mode_data) < self.idle_window_size:
+    def infer_dancer_moves(self):
+        """
+        infers dance moves
+        """
+        data = np.array(self.dance_data)
+        if len(data) < self.window_size:
             return None
-
-        # prepares data to check if dancer is still
-        data = np.array(self.idle_mode_data)
-        is_still = self.is_dancer_still(data)
-
-        # checks if the dancer should start
-        if self.is_idling:
-            if self.idle_counter % 10 == 0:
-                print("idling")
-            self.idle_counter += 1
-            if not is_still:
-                self.is_idling = False
-                self.skip_count = self.skip_count_10 * 3
-                print("start")
-                self.clear()
-            return None
-
-        # checking is still
-        if self.counter % 10 == 0 and self.verbose:
-            print("still" if self.is_still and not self.is_idling else "dancing")
-        self.counter += 1
-        # infer dance moves only but not positions once dancing detected
-        if self.is_still and not self.is_idling:
-            self.is_still = is_still
-
-        # infers dance positions or moves
-        if self.is_still:
-            if not self.infer_position:
-                return None
-            move = self.position_detection.infer(data)
-            if move:
-                self.skip_count = self.skip_count_10 * 4
-            return move
-        else:
-            if not self.infer_dance:
-                return None
-            if len(self.dance_data) < self.total_window_size:
-                return None
-            data = np.array(self.dance_data)[-self.dance_window_size :]
-            move = self.dance_detection.infer(data)
-            self.skip_count = self.skip_count_10 * 6
-            self.clear()
-            return move
-
-        return None
-
-    def clear(self):
-        self.idle_mode_data = collections.deque([], maxlen=self.idle_window_size)
-        self.dance_data = collections.deque([], self.total_window_size)
+        return self.dance_detection.infer(data)
 
 
 def scale_data(data, scaler, is_train=False):
