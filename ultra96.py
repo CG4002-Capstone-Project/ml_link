@@ -1,5 +1,6 @@
 import argparse
 import base64
+import logging
 import socket
 import sys
 import threading
@@ -103,7 +104,7 @@ class Server(threading.Thread):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
 
-        print("starting up on %s port %s" % server_address)
+        logger.info("starting up on %s port %s" % server_address)
         self.socket.bind(server_address)
 
         # listens for incoming connections
@@ -195,8 +196,8 @@ class Server(threading.Thread):
                 return
 
         except Exception:
-            print(data)
-            print(traceback.format_exc())
+            logger.error(data)
+            logger.error(traceback.format_exc())
             self.send_timestamp()
 
     def run(self):
@@ -223,7 +224,7 @@ class Server(threading.Thread):
             if data:
                 self.handle_data(data)
             else:
-                print("no more data from", self.client_address)
+                logger.warn("no more data from", self.client_address)
                 self.stop()
 
     def send_timestamp(self):
@@ -232,23 +233,23 @@ class Server(threading.Thread):
         self.connection.sendall(timestamp.encode())
 
     def setup_connection(self, secret_key):
-        print("No actions for 60 seconds to give time to connect")
+        logger.info("No actions for 60 seconds to give time to connect")
         self.timer = threading.Timer(self.timeout, self.send_timestamp)
         self.timer.start()
 
         # waits for a connection
-        print("waiting for a connection")
+        logger.info("waiting for a connection")
         self.connection, client_address = self.socket.accept()
 
-        print("Enter the secret key: ")
+        logger.info("Enter the secret key: ")
         if not secret_key:
             secret_key = sys.stdin.readline().strip()
 
-        print("connection from", client_address)
+        logger.info("connection from" + str(client_address))
         if len(secret_key) == 16 or len(secret_key) == 24 or len(secret_key) == 32:
             pass
         else:
-            print("AES key must be either 16, 24, or 32 bytes long")
+            logger.error("AES key must be either 16, 24, or 32 bytes long")
             self.stop()
 
         return client_address, secret_key
@@ -297,7 +298,7 @@ def main(dancer_ids, secret_key):
 
     if 0 in dancer_ids:
         dancer_server0.start()
-        print(
+        logger.info(
             "dancer_server0 started: IP address:"
             + IP_ADDRESS
             + " Port Number: "
@@ -308,7 +309,7 @@ def main(dancer_ids, secret_key):
 
     if 1 in dancer_ids:
         dancer_server1.start()
-        print(
+        logger.info(
             "dancer_server1 started: IP address:"
             + IP_ADDRESS
             + " Port Number: "
@@ -318,7 +319,7 @@ def main(dancer_ids, secret_key):
         )
     if 2 in dancer_ids:
         dancer_server2.start()
-        print(
+        logger.info(
             "dancer_server1 started: IP address:"
             + IP_ADDRESS
             + " Port Number: "
@@ -348,7 +349,7 @@ def main(dancer_ids, secret_key):
     while True:
         while not mqueue.empty():
             dancer_id, action, action_type = mqueue.get()
-            print("received:", dancer_id, action, action_type)
+            logger.info(("received:", dancer_id, action, action_type))
             if action_type == ACTION_TYPE_RESET:  # resetting
                 dancer_readiness[dancer_id] = True
             if action_type == ACTION_TYPE_POSITION:  # positions
@@ -435,8 +436,8 @@ def main(dancer_ids, secret_key):
                     original_positions,
                 ]
             )
-            print("### tabulated result ###")
-            print(data)
+            logger.info("### tabulated result ###")
+            logger.info(data)
             time.sleep(3)
 
             # reset
@@ -454,6 +455,18 @@ def main(dancer_ids, secret_key):
 
 
 if __name__ == "__main__":
+    file_handler = logging.FileHandler(
+        filename=f'ultra96_{time.strftime("%Y%m%d-%H%M%S")}.log'
+    )
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    handlers = [file_handler, stdout_handler]
+    logging.basicConfig(
+        level=logging.INFO,
+        format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+        handlers=handlers,
+    )
+    logger = logging.getLogger("ultra96")
+
     parser = argparse.ArgumentParser(description="External Comms")
     parser.add_argument(
         "--dancer_ids", help="dancer id", nargs="+", type=int, required=True
@@ -464,8 +477,8 @@ if __name__ == "__main__":
     dancer_ids = args.dancer_ids
     secret_key = args.secret_key
 
-    print("dancer_id:", dancer_ids)
-    print("secret_key:", secret_key)
+    logger.info("dancer_id:" + str(dancer_ids))
+    logger.info("secret_key:" + str(secret_key))
 
     COMMAND_RESET = 0
     COMMAND_CHANGE_POSITION = 1
