@@ -12,6 +12,19 @@ import pika
 from Crypto.Cipher import AES
 
 from inference import Inference, load_model
+from utils import (
+    dance_move_display,
+    dance_position_display,
+    reset_display,
+    results_display,
+)
+
+# import logging
+
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger()
+# logger.addHandler(logging.FileHandler(f'ultra96_{time.strftime("%Y%m%d-%H%M%S")}.log'))
+# print = logger.info
 
 warnings.filterwarnings("ignore")
 # Week 13 test: 8 moves, so 33 in total = (8*4) + 1 (logout)
@@ -198,7 +211,6 @@ class Server(threading.Thread):
             while not queues[self.dancer_id].empty():
                 command = queues[self.dancer_id].get()
                 if command == COMMAND_RESET:  # resetting
-                    print("reseting", self.dancer_id)
                     self.dance_start_time = None
                     self.is_resetting = True
                     self.is_changing_position = True
@@ -358,12 +370,22 @@ def main(dancer_ids, secret_key):
                 dancer_accuracies[dancer_id] = action
 
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness[:2]) and stage == 0:
+        if all(dancer_readiness[:1]) and stage == 0:
             for q in queues:
                 q.put(COMMAND_CHANGE_POSITION)
             start_time = time.time()
             stage = COMMAND_CHANGE_POSITION
-            print("change position")
+            dance_position_display()
+            results_display(
+                [
+                    dancer_readiness,
+                    dancer_start_times,
+                    dancer_moves,
+                    dancer_accuracies,
+                    dancer_positions,
+                    original_positions,
+                ]
+            )
             continue
 
         # start dancing after changing positions for some interval
@@ -371,11 +393,21 @@ def main(dancer_ids, secret_key):
             for q in queues:
                 q.put(COMMAND_START_DANCING)
             stage = COMMAND_START_DANCING
-            print("start dancing")
+            dance_move_display()
+            results_display(
+                [
+                    dancer_readiness,
+                    dancer_start_times,
+                    dancer_moves,
+                    dancer_accuracies,
+                    dancer_positions,
+                    original_positions,
+                ]
+            )
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves[:2]) and stage == 2:
+        if all(dancer_moves[:1]) and stage == 2:
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -388,11 +420,22 @@ def main(dancer_ids, secret_key):
             )
             # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
             data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
-            print("### tabulated result ###", data)
             if is_dasboard:
                 channel.basic_publish(
                     exchange="", routing_key="results", body=data,
                 )
+            reset_display()
+            results_display(
+                [
+                    dancer_readiness,
+                    dancer_start_times,
+                    dancer_moves,
+                    dancer_accuracies,
+                    dancer_positions,
+                    original_positions,
+                ]
+            )
+            print("### tabulated result ###", data)
 
             # reset
             dancer_readiness = [False, False, False]
@@ -404,7 +447,7 @@ def main(dancer_ids, secret_key):
             for q in queues:
                 q.put(COMMAND_RESET)
             stage = COMMAND_RESET
-            print("reset")
+
             continue
 
 
