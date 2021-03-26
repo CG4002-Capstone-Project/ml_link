@@ -132,6 +132,8 @@ class Inference:
     def infer(self):
         # debounces between moves and positions for n skip_counts
         if self.skip_count > 0:
+            if self.verbose and self.skip_count % 10 == 0:
+                print("debouncing:", self.skip_count)
             self.skip_count = self.skip_count - 1
             return None
 
@@ -151,7 +153,7 @@ class Inference:
             self.idle_counter += 1
             if not is_still:
                 self.is_idling = False
-                self.skip_count = self.skip_count_10 * 3
+                self.skip_count = self.skip_count_10 * 5
                 print("start")
                 self.clear()
             return None
@@ -167,16 +169,16 @@ class Inference:
                 return None
             move = self.position_detection.infer(data)
             if move:
-                self.skip_count = self.skip_count_10 * 2
+                self.skip_count = self.skip_count_10 * 5
             return move
         else:
-            self.skip_count = self.skip_count_10 * 3
             if not self.infer_dance:
                 return None
             if len(self.dance_data) < self.total_window_size:
                 return None
             data = np.array(self.dance_data)[-self.dance_window_size :]
             move = self.dance_detection.infer(data)
+            self.skip_count = self.skip_count_10 * 10
             self.clear()
             return move
 

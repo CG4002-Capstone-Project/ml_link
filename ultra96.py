@@ -155,7 +155,6 @@ class Server(threading.Thread):
                 queues[self.dancer_id].get()
                 print("reseting", self.dancer_id)
                 self.inference.is_still = True
-                self.inference.skip_count = 60
                 self.dance_start_time = None
 
             # handles data and inference
