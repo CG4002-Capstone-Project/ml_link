@@ -10,19 +10,27 @@ SERIAL_PORT_0 = "/dev/ttyACM0"
 SERIAL_PORT_1 = "/dev/ttyACM1"
 
 
-def check(line):
+def checkIMU(line):
     try:
-        gyrx, gyry, gyz, accx, accy, accz, cksum = line.split(" ")
-        val = int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz)
-        newline = ""
+        gyrx, gyry, gyrz, accx, accy, accz, cksum = line.split(" ")
+        val = int(gyrx) ^ int(gyry) ^ int(gyrz) ^ int(accx) ^ int(accy) ^ int(accz)
         if val == int(cksum):
-            newline = (
-                gyrx + " " + gyry + " " + gyz + " " + accx + " " + accy + " " + accz
-            )
-        return newline
+            return True
+        return False
     except Exception:
         print(traceback.format_exc())
-        return ""
+        return False
+
+def checkEMG(line):
+    try:
+        mav, rms, freq, cksum = line.split(" ")
+        val = int(mav) ^ int(rms) ^ int(freq)
+        if val == int(cksum):
+            return True
+        return False
+    except Exception:
+        print(traceback.format_exc())
+        return False
 
 
 class IntComm:
@@ -55,14 +63,23 @@ class IntComm:
                 print("here")
                 print(line[1:])
                 return self.get_line()
+            
+            # EMG messages
+            if line[0] == "$":
+                if (checkEMG(line[1:]) is True):
+                    print (line)
+                    return line
+                else:
+                    print("checksum failed for EMG data")
+                    return self.get_line()
 
             # acc/gyr data messages
             if line[0] == "#":
-                newline = check(line[1:])
-                if newline != "":
-                    return newline
+                if (checkIMU(line[1:]) is True):
+                    print (line)
+                    return line
                 else:
-                    print("checksum failed")
+                    print("checksum failed for IMU data")
                     return self.get_line()
 
             print("Invalid message")
