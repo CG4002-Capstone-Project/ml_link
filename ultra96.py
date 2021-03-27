@@ -12,6 +12,7 @@ from queue import SimpleQueue
 import pika
 from Crypto.Cipher import AES
 
+from eval_client import Client
 from inference import Inference, load_model
 from utils import (
     dance_move_display,
@@ -112,6 +113,7 @@ class Server(threading.Thread):
         self.client_address, self.secret_key = self.setup_connection(secret_key)
 
         self.dance_start_time = None
+        self.is_idling = True
         self.is_resetting = True
         self.is_changing_position = True
         self.is_dancing = True
@@ -125,6 +127,7 @@ class Server(threading.Thread):
         self.inference = Inference(
             model, model_type, scaler, verbose, infer_dance=True, infer_position=True
         )
+        self.counter = 0
 
     def handle_data(self, data):
         try:
@@ -140,6 +143,17 @@ class Server(threading.Thread):
             is_ready = self.inference.check_is_ready()
 
             if not is_ready:
+                return
+
+            # idle at the start
+            if self.is_idling:
+                is_moving = self.inference.check_is_moving()
+                if is_moving:
+                    self.is_idling = False
+                    return
+                self.counter += 1
+                if self.counter % 30 == 0:
+                    logger.info(f"dancer {self.dancer_id}: idling")
                 return
 
             # waiting for reply from main thread
@@ -271,18 +285,52 @@ def tabulate_results(
     main_dancer_id,
     guest_dancer_id,
 ):
-    positions = original_positions.copy()  # make a copy of the original positions
+    positions = original_positions.copy()
 
     dance_move = dancer_moves[main_dancer_id]
     accuracy = dancer_accuracies[main_dancer_id]
     sync_delay = calculate_sync_delay(*dancer_start_times)
-    for i in range(3):
-        positions[i] += dancer_positions[i]
+
+    d1_pos = positions.index(1) + dancer_positions[0]
+    d2_pos = positions.index(2) + dancer_positions[1]
+    d3_pos = positions.index(3) + dancer_positions[2]
+
+    if d1_pos < 0:
+        d1_pos = 0
+    if d1_pos > 2:
+        d1_pos = 2
+    if d2_pos < 0:
+        d2_pos = 0
+    if d2_pos > 2:
+        d2_pos = 2
+    if d3_pos < 0:
+        d3_pos = 0
+    if d3_pos > 2:
+        d3_pos = 2
+
+    # #TODO: more intelligent logic here
+    positions[d3_pos] = 3
+    positions[d2_pos] = 2
+    positions[d1_pos] = 1
 
     return dance_move, sync_delay, positions, accuracy
 
 
+def format_result(original_positions, positions, dance_move, sync_delay, accuracy):
+    eval_data = f"{positions[0]} {positions[1]} {positions[2]}|{dance_move}|{round(sync_delay, 4)}|"
+    # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
+    dashboard_data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
+    return eval_data, dashboard_data
+
+
 def main(dancer_ids, secret_key):
+    ip_addr = "localhost"
+    port_num = 8001
+    group_id = "18"
+    key = "1234123412341234"
+
+    my_client = Client(ip_addr, port_num, group_id, key)
+
     if 0 in dancer_ids:
         dancer_server0 = Server(
             IP_ADDRESS, PORT_NUM[0], GROUP_ID, secret_key, dancer_id=0
@@ -328,13 +376,14 @@ def main(dancer_ids, secret_key):
             + str(GROUP_ID)
         )
 
-    CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
-    params = pika.URLParameters(CLOUDAMQP_URL)
-    params.socket_timeout = 5
+    if is_dasboard:
+        CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
+        params = pika.URLParameters(CLOUDAMQP_URL)
+        params.socket_timeout = 5
 
-    connection = pika.BlockingConnection(params)
-    channel = connection.channel()
-    channel.queue_declare(queue="results")
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+        channel.queue_declare(queue="results")
 
     dancer_readiness = [False, False, False]
     dancer_start_times = [None, None, None]
@@ -346,6 +395,9 @@ def main(dancer_ids, secret_key):
     start_time = time.time()
     stage = 0
     counter = 3
+
+    my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
+
     while True:
         while not mqueue.empty():
             dancer_id, action, action_type = mqueue.get()
@@ -419,11 +471,15 @@ def main(dancer_ids, secret_key):
                 main_dancer_id=0,
                 guest_dancer_id=2,
             )
-            # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
-            data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
+
+            # display and sends results
+            eval_data, dashboard_data = format_result(
+                original_positions, positions, dance_move, sync_delay, accuracy
+            )
+            my_client.send_message(eval_data)
             if is_dasboard:
                 channel.basic_publish(
-                    exchange="", routing_key="results", body=data,
+                    exchange="", routing_key="results", body=dashboard_data,
                 )
             reset_display()
             results_display(
@@ -437,7 +493,8 @@ def main(dancer_ids, secret_key):
                 ]
             )
             logger.info("### tabulated result ###")
-            logger.info(data)
+            logger.info(eval_data)
+            logger.info(dashboard_data)
             time.sleep(3)
 
             # reset
@@ -446,7 +503,11 @@ def main(dancer_ids, secret_key):
             dancer_moves = [None, None, None]
             dancer_accuracies = [None, None, None]
             dancer_positions = [0, 0, 0]
-            original_positions = [1, 2, 3]
+            original_positions = my_client.receive_dancer_position()
+            logger.info(f"received dancer postions: {original_positions}")
+            original_positions = [
+                int(position) for position in original_positions.split(" ")
+            ]
             for q in queues:
                 q.put(COMMAND_RESET)
             stage = COMMAND_RESET

@@ -38,7 +38,17 @@ def ready_display(count):
 
 
 def results_display(data):
+    # dancer_readiness,
+    # dancer_start_times,
+    # dancer_moves,
+    # dancer_accuracies,
+    # dancer_positions,
+    # original_positions,
     print()
-    for datum in data:
-        print(f"{Colors.OKBLUE}{Colors.BOLD}{str(datum)}{Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[0])} ready state {Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[1])} start time {Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[2])} dance move {Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[3])} dance accuracy {Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[4])} dance position {Colors.ENDC}")
+    print(f"{Colors.OKBLUE}{Colors.BOLD}{str(data[5])} original position {Colors.ENDC}")
     print()
