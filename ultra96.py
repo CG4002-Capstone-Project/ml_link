@@ -332,7 +332,7 @@ def main(dancer_ids, secret_key):
     group_id = "18"
     key = "1234123412341234"
 
-    my_client = Client(ip_addr, port_num, group_id, key)
+    #my_client = Client(ip_addr, port_num, group_id, key)
 
     if 0 in dancer_ids:
         dancer_server0 = Server(
@@ -399,7 +399,7 @@ def main(dancer_ids, secret_key):
     stage = 0
     counter = 3
 
-    my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
+    #my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
 
     while True:
         while not mqueue.empty():
@@ -420,7 +420,7 @@ def main(dancer_ids, secret_key):
                 dancer_accuracies[dancer_id] = action
 
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness[:1]) and stage == 0:
+        if all(dancer_readiness[:2]) and stage == 0:
             if counter > 0:
                 ready_display(counter)
                 time.sleep(1)
@@ -463,7 +463,7 @@ def main(dancer_ids, secret_key):
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves[:1]) and stage == 2:
+        if all(dancer_moves[:2]) and stage == 2:
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -479,7 +479,7 @@ def main(dancer_ids, secret_key):
             eval_data, dashboard_data = format_result(
                 original_positions, positions, dance_move, sync_delay, accuracy
             )
-            my_client.send_message(eval_data)
+            #my_client.send_message(eval_data)
             if is_dasboard:
                 channel.basic_publish(
                     exchange="", routing_key="results", body=dashboard_data,
@@ -506,7 +506,8 @@ def main(dancer_ids, secret_key):
             dancer_moves = [None, None, None]
             dancer_accuracies = [None, None, None]
             dancer_positions = [0, 0, 0]
-            original_positions = my_client.receive_dancer_position()
+            original_positions = "1 2 3"
+            #original_positions = my_client.receive_dancer_position()
             logger.info(f"received dancer postions: {original_positions}")
             original_positions = [
                 int(position) for position in original_positions.split(" ")
@@ -560,14 +561,14 @@ if __name__ == "__main__":
 
     is_dasboard = False
 
-    if True:
+    if False:
         model_path = "/home/nwjbrandon/models/dnn_model.pth"
         scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
         model_type = "dnn"
         model, scaler = load_model(model_type, model_path, scaler_path)
     else:
-        model_path = "/home/nwjbrandon/models/dnn_model.pth"
-        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
+        model_path = "../models/wts"
+        scaler_path = "../models/dnn_std_scaler.bin"
         model_type = "fpga"
         model, scaler = load_model(model_type, model_path, scaler_path)
 
