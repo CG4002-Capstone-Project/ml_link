@@ -21,6 +21,7 @@ def checkIMU(line):
         print(traceback.format_exc())
         return False
 
+
 def checkEMG(line):
     try:
         mav, rms, freq, cksum = line.split(" ")
@@ -63,11 +64,11 @@ class IntComm:
                 print("here")
                 print(line[1:])
                 return self.get_line()
-            
+
             # EMG messages
             if line[0] == "$":
-                if (checkEMG(line[1:]) is True):
-                    print (line)
+                if checkEMG(line[1:]) is True:
+                    print(line)
                     return line
                 else:
                     print("checksum failed for EMG data")
@@ -75,8 +76,8 @@ class IntComm:
 
             # acc/gyr data messages
             if line[0] == "#":
-                if (checkIMU(line[1:]) is True):
-                    print (line)
+                if checkIMU(line[1:]) is True:
+                    print(line)
                     return line
                 else:
                     print("checksum failed for IMU data")
