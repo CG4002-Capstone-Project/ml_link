@@ -119,10 +119,6 @@ class Server(threading.Thread):
         self.is_dancing = True
         self.is_waiting = False
 
-        model_path = "/home/nwjbrandon/models/dnn_model.pth"
-        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
-        model_type = "dnn"
-        model, scaler = load_model(model_type, model_path, scaler_path)
         verbose = False
         self.inference = Inference(
             model, model_type, scaler, verbose, infer_dance=True, infer_position=True
@@ -191,22 +187,29 @@ class Server(threading.Thread):
                 return
 
             if self.is_dancing:
-                action = self.inference.infer_dancer_moves()
-                if action is not None:
-                    # all dancers have to end at the same time
-                    self.is_waiting = True
-                    # prevent dance moves from added to queue
-                    self.is_dancing = False
-                    # send to mqueue that that action is taken
-                    mqueue.put((self.dancer_id, action, ACTION_TYPE_DANCE_MOVE))
-                    mqueue.put(
-                        (
-                            self.dancer_id,
-                            self.inference.dance_detection.accuracy,
-                            ACTION_TYPE_ACCURACY,
+                if inference_mutex.locked():
+                    return
+                try:
+                    inference_mutex.acquire()
+                    action = self.inference.infer_dancer_moves()
+                    if action is not None:
+                        # all dancers have to end at the same time
+                        self.is_waiting = True
+                        # prevent dance moves from added to queue
+                        self.is_dancing = False
+                        # send to mqueue that that action is taken
+                        mqueue.put((self.dancer_id, action, ACTION_TYPE_DANCE_MOVE))
+                        mqueue.put(
+                            (
+                                self.dancer_id,
+                                self.inference.dance_detection.accuracy,
+                                ACTION_TYPE_ACCURACY,
+                            )
                         )
-                    )
-
+                except:
+                    inference_mutex.release()
+                finally:
+                    inference_mutex.release()
                 return
 
         except Exception:
@@ -309,8 +312,8 @@ def tabulate_results(
         d3_pos = 2
 
     # #TODO: more intelligent logic here
-    positions[d3_pos] = 3
-    positions[d2_pos] = 2
+    positions[d3_pos] = -1
+    positions[d2_pos] = -1
     positions[d1_pos] = 1
 
     return dance_move, sync_delay, positions, accuracy
@@ -556,6 +559,19 @@ if __name__ == "__main__":
     DANCING_DELAY = 90
 
     is_dasboard = False
+
+    if True:
+        model_path = "/home/nwjbrandon/models/dnn_model.pth"
+        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
+        model_type = "dnn"
+        model, scaler = load_model(model_type, model_path, scaler_path)
+    else:
+        model_path = "/home/nwjbrandon/models/dnn_model.pth"
+        scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
+        model_type = "fpga"
+        model, scaler = load_model(model_type, model_path, scaler_path)
+
+    inference_mutex = threading.Lock()
 
     queues = [SimpleQueue(), SimpleQueue(), SimpleQueue()]
     mqueue = SimpleQueue()
