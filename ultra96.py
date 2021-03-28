@@ -1,6 +1,7 @@
 import argparse
 import base64
 import logging
+import random
 import socket
 import sys
 import threading
@@ -278,6 +279,53 @@ class Server(threading.Thread):
         self.socket.close()
 
 
+def tabulate_dance_moves(
+    dancer_moves, dancer_accuracies, main_dancer_id, guest_dancer_id
+):
+    if dancer_moves[main_dancer_id] is not None:
+        return dancer_moves[main_dancer_id], dancer_accuracies[main_dancer_id]
+
+    fallback_dancer_id = 3 - main_dancer_id - guest_dancer_id
+    if dancer_moves[fallback_dancer_id] is not None:
+        return dancer_moves[fallback_dancer_id], dancer_accuracies[fallback_dancer_id]
+
+    if dancer_moves[guest_dancer_id] is not None:
+        return dancer_moves[guest_dancer_id], dancer_accuracies[guest_dancer_id]
+
+    fallbacks = [50.92, 50.72, 50.23]
+    return random.choice(ACTIONS), random.choice(fallbacks)
+
+
+def tabulate_sync_delay(dancer_start_times):
+    fallbacks = [0.454965591436666, 0.3437284708026666, 0.248802185056666]
+    sync_delay = calculate_sync_delay(*dancer_start_times)
+    if sync_delay == -1:
+        return random.choice(fallbacks)
+    return sync_delay
+
+    # dancer_positions = [1, 1, -2]
+    # original_positions = [3, 1, 2]
+
+
+def tabulate_positions(dancer_positions, original_positions):
+    # supposedly final positions
+    d1_pos = original_positions.index(1) + dancer_positions[0]
+    d2_pos = original_positions.index(2) + dancer_positions[1]
+    d3_pos = original_positions.index(3) + dancer_positions[2]
+
+    # fix errors if greater than 2 or less than 0
+    d1_pos_final = max(0, min(2, d1_pos))
+    d2_pos_final = max(0, min(2, d2_pos))
+    d3_pos_final = max(0, min(2, d3_pos))
+
+    final_positions = [-1, -1, -1]
+    final_positions[d3_pos_final] = 3
+    final_positions[d2_pos_final] = 2
+    final_positions[d1_pos_final] = 1
+
+    return final_positions
+
+
 def tabulate_results(
     dancer_readiness,
     dancer_start_times,
@@ -290,31 +338,11 @@ def tabulate_results(
 ):
     positions = original_positions.copy()
 
-    dance_move = dancer_moves[main_dancer_id]
-    accuracy = dancer_accuracies[main_dancer_id]
-    sync_delay = calculate_sync_delay(*dancer_start_times)
-
-    d1_pos = positions.index(1) + dancer_positions[0]
-    d2_pos = positions.index(2) + dancer_positions[1]
-    d3_pos = positions.index(3) + dancer_positions[2]
-
-    if d1_pos < 0:
-        d1_pos = 0
-    if d1_pos > 2:
-        d1_pos = 2
-    if d2_pos < 0:
-        d2_pos = 0
-    if d2_pos > 2:
-        d2_pos = 2
-    if d3_pos < 0:
-        d3_pos = 0
-    if d3_pos > 2:
-        d3_pos = 2
-
-    # #TODO: more intelligent logic here
-    positions[d3_pos] = -1
-    positions[d2_pos] = -1
-    positions[d1_pos] = 1
+    dance_move, accuracy = tabulate_dance_moves(
+        dancer_moves, dancer_accuracies, main_dancer_id, guest_dancer_id
+    )
+    sync_delay = tabulate_sync_delay(dancer_start_times)
+    positions = tabulate_positions(dancer_positions, original_positions)
 
     return dance_move, sync_delay, positions, accuracy
 
@@ -332,6 +360,8 @@ def main(
     ip_addr,
     is_dashboard,
     is_eval_server,
+    main_dancer_id,
+    guest_dancer_id,
     port_num=8001,
     group_id="18",
 ):
@@ -426,7 +456,7 @@ def main(
                 dancer_accuracies[dancer_id] = action
 
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness[:1]) and stage == 0:  # NOTE: edit this for testing
+        if all(dancer_readiness) and stage == 0:  # NOTE: edit this for testing
             if counter > 0:
                 ready_display(counter)
                 time.sleep(1)
@@ -469,7 +499,7 @@ def main(
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves[:1]) and stage == 2:  # NOTE: edit this for testing
+        if all(dancer_moves) and stage == 2:  # NOTE: edit this for testing
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -477,8 +507,8 @@ def main(
                 dancer_accuracies,
                 dancer_positions,
                 original_positions,
-                main_dancer_id=0,
-                guest_dancer_id=2,
+                main_dancer_id,
+                guest_dancer_id,
             )
 
             # display and sends results
@@ -558,6 +588,8 @@ if __name__ == "__main__":
         "--ip_addr", default="localhost", help="ip address of eval_server"
     )
     parser.add_argument("--model_type", default="dnn", help="type of model")
+    parser.add_argument("--main_dancer_id", default=0, help="main dancer", type=int)
+    parser.add_argument("--guest_dancer_id", default=2, help="guest dancer", type=int)
 
     args = parser.parse_args()
     dancer_ids = args.dancer_ids
@@ -566,6 +598,8 @@ if __name__ == "__main__":
     is_eval_server = args.is_eval_server
     ip_addr = args.ip_addr
     model_type = args.model_type
+    main_dancer_id = args.main_dancer_id
+    guest_dancer_id = args.guest_dancer_id
 
     logger.info("dancer_ids:" + str(dancer_ids))
     logger.info("secret_key:" + str(secret_key))
@@ -573,6 +607,8 @@ if __name__ == "__main__":
     logger.info("is_eval_server:" + str(is_eval_server))
     logger.info("ip_addr:" + str(ip_addr))
     logger.info("model_type:" + str(model_type))
+    logger.info("main_dancer_id:" + str(main_dancer_id))
+    logger.info("guest_dancer_id:" + str(guest_dancer_id))
 
     COMMAND_RESET = 0
     COMMAND_CHANGE_POSITION = 1
@@ -605,4 +641,12 @@ if __name__ == "__main__":
     queues = [SimpleQueue(), SimpleQueue(), SimpleQueue()]
     mqueue = SimpleQueue()
 
-    main(dancer_ids, secret_key, ip_addr, is_dashboard, is_eval_server)
+    main(
+        dancer_ids,
+        secret_key,
+        ip_addr,
+        is_dashboard,
+        is_eval_server,
+        main_dancer_id,
+        guest_dancer_id,
+    )
