@@ -9,7 +9,11 @@ try:
     import torch
     import torch.nn as nn
 except ModuleNotFoundError:
-    print("warning: torch cannot be found")
+    print("warning: torch cannot be imported")
+try:
+    from technoedge import FIXED_FACTOR, TechnoEdge
+except ModuleNotFoundError:
+    print("warning: technoedge cannot be imported")
 
 warnings.filterwarnings("ignore")
 
@@ -86,6 +90,20 @@ class DanceDetection:
                 print(f"{dance_move} detected")
             return dance_move
         elif self.model_type == "fpga":
+
+            inputs = list(inputs[0])
+            inputs = [int(x * FIXED_FACTOR) for x in inputs]
+            self.model.write(inputs)
+            self.model.run()
+            result = self.model.get_result()
+            predicted = np.argmax(result)
+            dance_move = self.activities[predicted]
+
+            self.accuracy = np.max(result) / np.sum(np.abs(result))
+
+            if self.verbose:
+                print(f"{dance_move} detected")
+            return dance_move
             return "fpga not implemented"
         else:
             raise Exception("model is not supported")
@@ -290,7 +308,12 @@ def extract_raw_data_features(X, n_features=84):
     return new_features
 
 
-def load_model(model_type, model_path, scaler_path):
+def load_model(
+    model_type,
+    model_path,
+    scaler_path,
+    bit_path="/home/xilinx/jupyter_notebooks/frontier/capstone_full.bit",
+):
     scaler = load(scaler_path)
     if model_type == "dnn":
 
@@ -318,10 +341,16 @@ def load_model(model_type, model_path, scaler_path):
         model = DNN()
         model.load_state_dict(torch.load(model_path))
         model.eval()
-
         return model, scaler
 
     elif model_type == "fpga":
-        pass
+        scaler = load(scaler_path)
+        model = TechnoEdge(bit_path)
+        f = open(model_path, "rb")
+        wts = np.load(f)
+        model.put_weights(wts)
+        f.close()
+        return model, scaler
+
     else:
         raise Exception("model is not supported")
