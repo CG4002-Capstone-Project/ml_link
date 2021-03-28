@@ -189,8 +189,8 @@ class Server(threading.Thread):
             if self.is_dancing:
                 if inference_mutex.locked():
                     return
+                inference_mutex.acquire()
                 try:
-                    inference_mutex.acquire()
                     action = self.inference.infer_dancer_moves()
                     if action is not None:
                         # all dancers have to end at the same time
@@ -207,7 +207,7 @@ class Server(threading.Thread):
                             )
                         )
                 except:
-                    inference_mutex.release()
+                    logger.error(traceback.format_exc())
                 finally:
                     inference_mutex.release()
                 return
@@ -326,13 +326,18 @@ def format_result(original_positions, positions, dance_move, sync_delay, accurac
     return eval_data, dashboard_data
 
 
-def main(dancer_ids, secret_key):
-    ip_addr = "localhost"
-    port_num = 8001
-    group_id = "18"
-    key = "1234123412341234"
-
-    #my_client = Client(ip_addr, port_num, group_id, key)
+def main(
+    dancer_ids,
+    secret_key,
+    ip_addr,
+    is_dashboard,
+    is_eval_server,
+    port_num=8001,
+    group_id="18",
+):
+    # note that the same secret_key is use throughout the system for dancers and eval server
+    if is_eval_server:
+        my_client = Client(ip_addr, port_num, group_id, secret_key)
 
     if 0 in dancer_ids:
         dancer_server0 = Server(
@@ -379,7 +384,7 @@ def main(dancer_ids, secret_key):
             + str(GROUP_ID)
         )
 
-    if is_dasboard:
+    if is_dashboard:
         CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
         params = pika.URLParameters(CLOUDAMQP_URL)
         params.socket_timeout = 5
@@ -399,7 +404,8 @@ def main(dancer_ids, secret_key):
     stage = 0
     counter = 3
 
-    #my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
+    if is_eval_server:
+        my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
 
     while True:
         while not mqueue.empty():
@@ -420,7 +426,7 @@ def main(dancer_ids, secret_key):
                 dancer_accuracies[dancer_id] = action
 
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness[:2]) and stage == 0:
+        if all(dancer_readiness[:1]) and stage == 0:  # NOTE: edit this for testing
             if counter > 0:
                 ready_display(counter)
                 time.sleep(1)
@@ -463,7 +469,7 @@ def main(dancer_ids, secret_key):
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves[:2]) and stage == 2:
+        if all(dancer_moves[:1]) and stage == 2:  # NOTE: edit this for testing
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -479,8 +485,9 @@ def main(dancer_ids, secret_key):
             eval_data, dashboard_data = format_result(
                 original_positions, positions, dance_move, sync_delay, accuracy
             )
-            #my_client.send_message(eval_data)
-            if is_dasboard:
+            if is_eval_server:
+                my_client.send_message(eval_data)
+            if is_dashboard:
                 channel.basic_publish(
                     exchange="", routing_key="results", body=dashboard_data,
                 )
@@ -506,8 +513,10 @@ def main(dancer_ids, secret_key):
             dancer_moves = [None, None, None]
             dancer_accuracies = [None, None, None]
             dancer_positions = [0, 0, 0]
-            original_positions = "1 2 3"
-            #original_positions = my_client.receive_dancer_position()
+            if is_eval_server:
+                original_positions = my_client.receive_dancer_position()
+            else:
+                original_positions = "1 2 3"
             logger.info(f"received dancer postions: {original_positions}")
             original_positions = [
                 int(position) for position in original_positions.split(" ")
@@ -520,6 +529,7 @@ def main(dancer_ids, secret_key):
 
 
 if __name__ == "__main__":
+    # setup logging
     file_handler = logging.FileHandler(
         filename=f'ultra96_{time.strftime("%Y%m%d-%H%M%S")}.log'
     )
@@ -532,18 +542,37 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger("ultra96")
 
+    # parse arguments
     parser = argparse.ArgumentParser(description="External Comms")
     parser.add_argument(
         "--dancer_ids", help="dancer id", nargs="+", type=int, required=True
     )
     parser.add_argument("--secret_key", default="1234123412341234", help="secret key")
+    parser.add_argument(
+        "--is_dashboard", default=False, help="send to dashboard", type=bool
+    )
+    parser.add_argument(
+        "--is_eval_server", default=False, help="send to eval sever", type=bool
+    )
+    parser.add_argument(
+        "--ip_addr", default="localhost", help="ip address of eval_server"
+    )
+    parser.add_argument("--model_type", default="dnn", help="type of model")
 
     args = parser.parse_args()
     dancer_ids = args.dancer_ids
     secret_key = args.secret_key
+    is_dashboard = args.is_dashboard
+    is_eval_server = args.is_eval_server
+    ip_addr = args.ip_addr
+    model_type = args.model_type
 
-    logger.info("dancer_id:" + str(dancer_ids))
+    logger.info("dancer_ids:" + str(dancer_ids))
     logger.info("secret_key:" + str(secret_key))
+    logger.info("is_dashboard:" + str(is_dashboard))
+    logger.info("is_eval_server:" + str(is_eval_server))
+    logger.info("ip_addr:" + str(ip_addr))
+    logger.info("model_type:" + str(model_type))
 
     COMMAND_RESET = 0
     COMMAND_CHANGE_POSITION = 1
@@ -561,15 +590,14 @@ if __name__ == "__main__":
 
     is_dasboard = False
 
-    if False:
+    if model_type == "dnn":
         model_path = "/home/nwjbrandon/models/dnn_model.pth"
         scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
-        model_type = "dnn"
         model, scaler = load_model(model_type, model_path, scaler_path)
     else:
         model_path = "../models/wts"
         scaler_path = "../models/dnn_std_scaler.bin"
-        model_type = "fpga"
+        model_type = "fpga"  # run fpga model
         model, scaler = load_model(model_type, model_path, scaler_path)
 
     inference_mutex = threading.Lock()
@@ -577,4 +605,4 @@ if __name__ == "__main__":
     queues = [SimpleQueue(), SimpleQueue(), SimpleQueue()]
     mqueue = SimpleQueue()
 
-    main(dancer_ids, secret_key)
+    main(dancer_ids, secret_key, ip_addr, is_dashboard, is_eval_server)
