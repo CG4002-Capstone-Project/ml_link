@@ -13,7 +13,11 @@ if __name__ == "__main__":
     inference = Inference(
         model, model_type, scaler, verbose, infer_dance=False, infer_position=True
     )
-    intcomm = IntComm("/dev/ttyACM1")
+    # change this according to your serial port
+    # 0: "/dev/ttyACM0"
+    # 1: "/dev/ttyACM1"
+    # 2: "/dev/ttyACM2"
+    intcomm = IntComm(0)
     data = []
 
     start_time = time.time()

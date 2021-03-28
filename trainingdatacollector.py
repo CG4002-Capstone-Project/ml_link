@@ -4,12 +4,18 @@ from intcomm import IntComm
 
 if __name__ == "__main__":
 
-    intcomm = IntComm("/dev/ttyACM1")
+    # change this according to your serial port
+    # 0: "/dev/ttyACM0"
+    # 1: "/dev/ttyACM1"
+    # 2: "/dev/ttyACM2"
+    intcomm = IntComm(0)
     data = []
     print("Start")
     try:
         while True:
             point = intcomm.get_acc_gyr_data()
+            print ("data is...")
+            print (point)
             data.append(point)
     except KeyboardInterrupt:
         print("terminating program")

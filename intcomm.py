@@ -1,50 +1,52 @@
 import time
 import traceback
-
+import argparse
 import serial
 
 # from datacollector import DataCollector
 
 # SERIAL_PORT = os.environ['SERIAL_PORT']
-SERIAL_PORT_0 = "/dev/ttyACM0"
-SERIAL_PORT_1 = "/dev/ttyACM1"
-
+SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 def checkIMU(line):
+    parsedline = ""
     try:
         gyrx, gyry, gyrz, accx, accy, accz, cksum = line.split(" ")
         val = int(gyrx) ^ int(gyry) ^ int(gyrz) ^ int(accx) ^ int(accy) ^ int(accz)
         if val == int(cksum):
-            return True
-        return False
+            parsedline = "#" + gyrx + " " + gyry + " " + gyrz + " " + accx + " " + accy + " " + accz
+            return parsedline
+        return parsedline
     except Exception:
         print(traceback.format_exc())
-        return False
+        return parsedline
 
 
 def checkEMG(line):
+    parsedline = ""
     try:
         mav, rms, freq, cksum = line.split(" ")
         val = int(mav) ^ int(rms) ^ int(freq)
         if val == int(cksum):
-            return True
-        return False
+            parsedline = "$" + mav + " " + rms + " " + freq
+            return parsedline
+        return parsedline
     except Exception:
         print(traceback.format_exc())
-        return False
+        return parsedline
 
 
 class IntComm:
     def __init__(self, serial_port, dancer=1):
-        self.ser = serial.Serial(serial_port, 115200)
+        self.ser = serial.Serial(SERIAL_PORTS[serial_port], 115200, timeout = 0.5)
         self.ser.flushInput()
         time.sleep(0.5)
-        print("Opened serial port %s" % serial_port)
+        print("Opened serial port %s" % SERIAL_PORTS[serial_port])
 
         while True:
             line = self.ser.readline()
             print(line)
-            if b"Send any character to begin DMP programming and demo:" in line:
+            if b"Send any character to begin DMP programming and demo:" in line:  
                 break
 
         self.ser.write("s".encode())
@@ -52,36 +54,55 @@ class IntComm:
         self.dancer = dancer
 
     def get_line(self):
-        line = self.ser.readline()
-        if len(line) > 0:
-            line = line.decode().strip()
-        else:
-            return self.get_line()
 
+        # Get data from beetles and if not reconnect
+        line = ""
+        count = 0
+        while True:
+            line = self.ser.readline()
+            if len(line) > 0:
+                line = line.decode().strip()
+                break
+            else:
+                count += 1
+                print ("no data received for {} iterations".format(count))
+                if (count >= 5):
+                    count = 0
+                    print ("reconnecting with beetle...")
+                    self.ser.write("s".encode())
+            
         try:
-            # initial messages to ignore
+            # handshake message in the case of reconnection
+            if "Send any character to begin DMP programming and demo:" in line:
+                self.ser.write("s".encode())
+                return self.get_line()
+
+            # initial messages to be ignored    
             if line[0] == "!":
-                print("here")
+                print("data to be ignored")
                 print(line[1:])
+                self.ser.write("s".encode())
                 return self.get_line()
 
             # EMG messages
             if line[0] == "$":
-                if checkEMG(line[1:]) is True:
-                    print(line)
-                    return line
-                else:
+                parsedline = checkEMG(line[1:])
+                if (parsedline == ""):
                     print("checksum failed for EMG data")
                     return self.get_line()
+                else:
+                    print(parsedline)
+                    return parsedline
 
             # acc/gyr data messages
             if line[0] == "#":
-                if checkIMU(line[1:]) is True:
-                    print(line)
-                    return line
-                else:
+                parsedline = checkIMU(line[1:])
+                if (parsedline == ""):
                     print("checksum failed for IMU data")
                     return self.get_line()
+                else:
+                    print(parsedline)
+                    return parsedline
 
             print("Invalid message")
             print(line)
@@ -94,15 +115,23 @@ class IntComm:
     # helper function to get raw data
     def get_acc_gyr_data(self):
         line = self.get_line()
-        tokens = line.split(" ")
-
-        data = [float(token) for token in tokens]
-
-        return data
-
+        # only take in IMU data
+        if (line[0] == "#"):
+            tokens = line[1:].split(" ")
+            # print (tokens)
+            data = [float(token) for token in tokens]
+            return data
+        else:
+            return self.get_acc_gyr_data()
+      
 
 if __name__ == "__main__":
-    int_comm = IntComm(SERIAL_PORT_0)
+    
+    parser = argparse.ArgumentParser(description="Internal Comms")
+    parser.add_argument("--serial", default=0, help="select serial port", type=int, required=True)
+    args = parser.parse_args()
+    serial_port_entered = args.serial
+    int_comm = IntComm(serial_port_entered)
 
     count = 0
     start = time.time()

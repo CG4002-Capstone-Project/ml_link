@@ -10,7 +10,7 @@ import pika
 from Crypto import Random
 from Crypto.Cipher import AES
 
-from intcomm import SERIAL_PORT_0, SERIAL_PORT_1, IntComm
+from intcomm import SERIAL_PORTS, IntComm
 
 PORT = 9092
 DANCER_ID = 1
@@ -37,14 +37,10 @@ class Client(threading.Thread):
 
         self.dancer_positions = ["1", "2", "3"]
 
-        serial_port = SERIAL_PORT_0
-        if dancer_id == 1:
-            serial_port = SERIAL_PORT_1
-
-        self.intcomm = IntComm(serial_port, dancer_id)
+        self.intcomm = IntComm(serial_port_entered, dancer_id)
 
         # Create a TCP/IP socket and bind to port
-
+        
         self.shutdown = threading.Event()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
@@ -52,6 +48,7 @@ class Client(threading.Thread):
         logger.info("Start connecting>>>>>>>>>>>>")
         self.socket.connect(server_address)
         logger.info("Connected")
+        
 
     def run(self):
 
@@ -72,20 +69,6 @@ class Client(threading.Thread):
             # IMU data
             if data[0] == "#":
                 data = data[1:]
-                gyrx, gyry, gyrz, accx, accy, accz, cksum = data.split(" ")
-                data = (
-                    gyrx
-                    + " "
-                    + gyry
-                    + " "
-                    + gyrz
-                    + " "
-                    + accx
-                    + " "
-                    + accy
-                    + " "
-                    + accz
-                )
                 message_final = (
                     str(dancer_id)
                     + "|"
@@ -103,7 +86,7 @@ class Client(threading.Thread):
                     )
                 logger.info(f"Sending IMU {message_final}")
                 t1 = time.time()
-
+                
                 self.send_message(message_final)
                 timestamp = self.receive_timestamp()
                 t4 = time.time()
@@ -111,13 +94,12 @@ class Client(threading.Thread):
                 t3 = float(timestamp.split("|")[1][:18])
                 RTT = t4 - t3 + t2 - t1
                 offset = (t2 - t1) - RTT / 2
+                
 
             # EMG data
             elif data[0] == "$":
                 if emg is True:
                     data = data[1:]
-                    mav, rms, freq, cksum = data.split(" ")
-                    data = mav + " " + rms + " " + freq
                     message_emg = str(t1) + "|" + data
                     logger.info(f"Sending EMG {message_emg}")
                     channel.basic_publish(
@@ -165,10 +147,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="External Comms")
     parser.add_argument("--dancer_id", help="dancer id", type=int, required=True)
     parser.add_argument("--emg", default=False, help="collect emg data", type=bool)
+    parser.add_argument("--serial", default=0, help="select serial port", type=int, required=True)
 
     args = parser.parse_args()
     dancer_id = args.dancer_id
     emg = args.emg
+    serial_port_entered = args.serial
 
     file_handler = logging.FileHandler(
         filename=f'extcomms_{dancer_id}_{time.strftime("%Y%m%d-%H%M%S")}.log'
