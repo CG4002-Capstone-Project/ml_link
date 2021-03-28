@@ -14,8 +14,8 @@ if __name__ == "__main__":
     try:
         while True:
             point = intcomm.get_acc_gyr_data()
-            print ("data is...")
-            print (point)
+            print("data is...")
+            print(point)
             data.append(point)
     except KeyboardInterrupt:
         print("terminating program")

@@ -24,12 +24,19 @@ if __name__ == "__main__":
     while True:
         gx, gy, gz, ax, ay, az = intcomm.get_acc_gyr_data()
         inference.append_readings(gx, gy, gz, ax, ay, az)
-        result = inference.infer()
-        if result:
-            print(f"result: {result}")
-            if not (result == "left" or result == "right"):
-                inference.clear()
-                end_time = time.time()
-                print("response time:", int(end_time - start_time))
-                start_time = end_time
-                inference.is_still = True
+
+        is_ready = inference.check_is_ready()
+        if not is_ready:
+            continue
+
+        # # left or right
+        # action = inference.infer_dancer_left_right()
+        # if action is not None:
+        #     print(action)
+        #     inference.skip_count = 30
+
+        # dance move
+        action = inference.infer_dancer_moves()
+        if action is not None:
+            print(action)
+            inference.skip_count = 60

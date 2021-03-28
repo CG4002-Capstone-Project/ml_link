@@ -10,7 +10,7 @@ import pika
 from Crypto import Random
 from Crypto.Cipher import AES
 
-from intcomm import SERIAL_PORTS, IntComm
+from intcomm import IntComm
 
 PORT = 9092
 DANCER_ID = 1
@@ -40,7 +40,7 @@ class Client(threading.Thread):
         self.intcomm = IntComm(serial_port_entered, dancer_id)
 
         # Create a TCP/IP socket and bind to port
-        
+
         self.shutdown = threading.Event()
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         server_address = (ip_addr, port_num)
@@ -48,7 +48,6 @@ class Client(threading.Thread):
         logger.info("Start connecting>>>>>>>>>>>>")
         self.socket.connect(server_address)
         logger.info("Connected")
-        
 
     def run(self):
 
@@ -79,14 +78,16 @@ class Client(threading.Thread):
                     + data
                     + "|"
                 )
-                database_msg = str(dancer_id) + "|" + str(t1) + "|" + data + "|"
-                if dashboard:
+                if is_dashboard:
+                    database_msg = str(dancer_id) + "|" + str(t1) + "|" + data + "|"
                     channel.basic_publish(
-                        exchange="", routing_key=DB_QUEUES[dancer_id], body=database_msg
+                        exchange="",
+                        routing_key=DB_QUEUES[dancer_id],
+                        body=database_msg,
                     )
                 logger.info(f"Sending IMU {message_final}")
                 t1 = time.time()
-                
+
                 self.send_message(message_final)
                 timestamp = self.receive_timestamp()
                 t4 = time.time()
@@ -94,7 +95,6 @@ class Client(threading.Thread):
                 t3 = float(timestamp.split("|")[1][:18])
                 RTT = t4 - t3 + t2 - t1
                 offset = (t2 - t1) - RTT / 2
-                
 
             # EMG data
             elif data[0] == "$":
@@ -102,9 +102,11 @@ class Client(threading.Thread):
                     data = data[1:]
                     message_emg = str(t1) + "|" + data
                     logger.info(f"Sending EMG {message_emg}")
-                    channel.basic_publish(
-                        exchange="", routing_key="emg", body=message_emg
-                    )
+
+                    if is_dashboard:
+                        channel.basic_publish(
+                            exchange="", routing_key="emg", body=message_emg
+                        )
 
     # To encrypt the message, which is a string
     def encrypt_message(self, message):
@@ -147,12 +149,18 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="External Comms")
     parser.add_argument("--dancer_id", help="dancer id", type=int, required=True)
     parser.add_argument("--emg", default=False, help="collect emg data", type=bool)
-    parser.add_argument("--serial", default=0, help="select serial port", type=int, required=True)
+    parser.add_argument(
+        "--serial", default=0, help="select serial port", type=int, required=True
+    )
+    parser.add_argument(
+        "--is_dashboard", default=False, help="send to dashboard", type=bool
+    )
 
     args = parser.parse_args()
     dancer_id = args.dancer_id
     emg = args.emg
     serial_port_entered = args.serial
+    is_dashboard = args.is_dashboard
 
     file_handler = logging.FileHandler(
         filename=f'extcomms_{dancer_id}_{time.strftime("%Y%m%d-%H%M%S")}.log'
@@ -166,28 +174,21 @@ if __name__ == "__main__":
     )
     logger = logging.getLogger(f"extcomms_{dancer_id}")
 
-    CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
-    params = pika.URLParameters(CLOUDAMQP_URL)
-    params.socket_timeout = 5
-
-    connection = pika.BlockingConnection(params)
-    channel = connection.channel()
-    channel.queue_declare(queue=DB_QUEUES[dancer_id])
-
-    if emg is True:
+    if is_dashboard:
         CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
         params = pika.URLParameters(CLOUDAMQP_URL)
         params.socket_timeout = 5
 
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
+
+        channel.queue_declare(queue=DB_QUEUES[dancer_id])
         channel.queue_declare(queue="emg")
 
     ip_addr = "127.0.0.1"
     port_num = PORT_NUM[dancer_id]
     group_id = "18"
     key = "1234123412341234"
-    dashboard = False
     my_client = Client(group_id, key)
 
     my_client.run()

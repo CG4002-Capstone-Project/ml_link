@@ -1,14 +1,16 @@
+import argparse
 import time
 import traceback
-import argparse
+
 import serial
 from bluepy import btle
 
 # from datacollector import DataCollector
 
 # SERIAL_PORT = os.environ['SERIAL_PORT']
-#SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
+# SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 MAC = ["80:30:DC:E9:25:07", "34:B1:F7:D2:35:97", "34:B1:F7:D2:35:9D"]
+
 
 def checkIMU(line):
     parsedline = ""
@@ -16,7 +18,20 @@ def checkIMU(line):
         gyrx, gyry, gyrz, accx, accy, accz, cksum = line.split(" ")
         val = int(gyrx) ^ int(gyry) ^ int(gyrz) ^ int(accx) ^ int(accy) ^ int(accz)
         if val == int(cksum):
-            parsedline = "#" + gyrx + " " + gyry + " " + gyrz + " " + accx + " " + accy + " " + accz
+            parsedline = (
+                "#"
+                + gyrx
+                + " "
+                + gyry
+                + " "
+                + gyrz
+                + " "
+                + accx
+                + " "
+                + accy
+                + " "
+                + accz
+            )
             return parsedline
         return parsedline
     except Exception:
@@ -37,26 +52,29 @@ def checkEMG(line):
         print(traceback.format_exc())
         return parsedline
 
+
 class UUIDS:
     SERIAL_COMMS = btle.UUID("0000dfb1-0000-1000-8000-00805f9b34fb")
+
 
 class Delegate(btle.DefaultDelegate):
     def __init__(self, params):
         btle.DefaultDelegate.__init__(self)
 
     def handleNotification(self, cHandle, data):
-        print (data)
+        print(data)
+
 
 class IntComm:
     def __init__(self, port, dancer=1):
-        
+
         self.global_delegate_obj = 0
         self.global_beetle = 0
-        self.address = MAC[port] 
-        
+        self.address = MAC[port]
+
         # establish connection
         self.establish_connection(self.address)
-          
+
     def establish_connection(self, address):
         while True:
             try:
@@ -64,7 +82,7 @@ class IntComm:
                     self.global_beetle._stopHelper()
                     self.global_beetle.disconnect()
                     self.global_beetle = 0
-                        
+
                 if self.global_beetle == 0:  # just stick with if instead of else
                     print("connecting with %s" % (address))
                     # creates a Peripheral object and makes a connection to the device
@@ -75,21 +93,25 @@ class IntComm:
                     self.global_delegate_obj = beetle_delegate
                     # stores a reference to a “delegate” object, which is called when asynchronous events such as Bluetooth notifications occur.
                     beetle.withDelegate(beetle_delegate)
-                    
+
                     # do handshake
                     while True:
                         for characteristic in beetle.getCharacteristics():
                             if characteristic.uuid == UUIDS.SERIAL_COMMS:
                                 print("sending 'H' packet to %s" % (beetle.addr))
-                                characteristic.write(bytes("H", "UTF-8"), withResponse=False)
+                                characteristic.write(
+                                    bytes("H", "UTF-8"), withResponse=False
+                                )
 
                                 if beetle.waitForNotifications(5):
-                                    print ("connected....")
+                                    print("connected....")
                                     break
                                 else:
                                     print("sending 'H' packet to %s" % (beetle.addr))
-                                    characteristic.write(bytes("H", "UTF-8"), withResponse=False)
-                           
+                                    characteristic.write(
+                                        bytes("H", "UTF-8"), withResponse=False
+                                    )
+
             except KeyboardInterrupt:
                 print(traceback.format_exc())
                 if self.global_beetle != 0:  # disconnect
@@ -100,9 +122,9 @@ class IntComm:
             except Exception:
                 print(traceback.format_exc())
                 self.establish_connection(address)
-        
+
     def get_line(self):
-        
+
         waitCount = 0
         while True:
             try:
@@ -126,7 +148,6 @@ class IntComm:
                 print(traceback.format_exc())
                 establish_connection(beetle.addr)
                 return
-
 
         """
         # Get data from beetles and if not reconnect
@@ -191,17 +212,17 @@ class IntComm:
     def get_acc_gyr_data(self):
         line = self.get_line()
         # only take in IMU data
-        if (line[0] == "#"):
+        if line[0] == "#":
             tokens = line[1:].split(" ")
-            print (tokens)
+            print(tokens)
             data = [float(token) for token in tokens]
             return data
         else:
             return self.get_acc_gyr_data()
-      
+
 
 if __name__ == "__main__":
-    
+
     int_comm = IntComm(1)
 
     count = 0
