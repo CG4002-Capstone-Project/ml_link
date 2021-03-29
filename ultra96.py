@@ -525,7 +525,7 @@ def main(
     original_positions = [1, 2, 3]
 
     start_time = time.time()
-    stage = 0
+    stage = -1
     counter = 3
 
     if is_eval_server:
@@ -549,8 +549,41 @@ def main(
             if action_type == ACTION_TYPE_ACCURACY:  # accuracies
                 dancer_accuracies[dancer_id] = action
 
+        # start changing positions if display changes
+        if (
+            sum(dancer_readiness) == len(dancer_ids) and stage == -1
+        ):  # NOTE: edit this for testing
+            if counter > 0:
+                ready_display(counter)
+                time.sleep(1)
+                counter -= 1
+                continue
+
+            for q in queues:
+                q.put(COMMAND_CHANGE_POSITION)
+            start_time = time.time()
+            stage = COMMAND_CHANGE_POSITION
+            if is_dashboard:
+                channel.basic_publish(
+                    exchange="", routing_key="mode", body="CHANGE POSITIONS",
+                )
+            dance_position_display()
+            results_display(
+                [
+                    dancer_readiness,
+                    dancer_start_times,
+                    dancer_moves,
+                    dancer_accuracies,
+                    dancer_positions,
+                    original_positions,
+                ]
+            )
+            continue
+
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness[:1]) and stage == 0:  # NOTE: edit this for testing
+        if (
+            all(dancer_readiness) or (time.time() - start_time > 12)
+        ) and stage == 0:  # NOTE: edit this for testing
             if counter > 0:
                 ready_display(counter)
                 time.sleep(1)
@@ -579,9 +612,10 @@ def main(
             continue
 
         # start dancing after changing positions for some interval
-        if time.time() - start_time > 5 and stage == 1:
+        if time.time() - start_time > 6 and stage == 1:
             for q in queues:
                 q.put(COMMAND_START_DANCING)
+            start_time = time.time()
             stage = COMMAND_START_DANCING
             if is_dashboard:
                 channel.basic_publish(
@@ -601,7 +635,9 @@ def main(
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves[:1]) and stage == 2:  # NOTE: edit this for testing
+        if (
+            all(dancer_moves) or (time.time() - start_time > 12)
+        ) and stage == 2:  # NOTE: edit this for testing
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -659,6 +695,7 @@ def main(
             ]
             for q in queues:
                 q.put(COMMAND_RESET)
+            start_time = time.time()
             stage = COMMAND_RESET
 
             continue
