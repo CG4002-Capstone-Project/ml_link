@@ -422,6 +422,7 @@ def main(
         connection = pika.BlockingConnection(params)
         channel = connection.channel()
         channel.queue_declare(queue="results")
+        channel.queue_declare(queue="mode")
 
     dancer_readiness = [False, False, False]
     dancer_start_times = [None, None, None]
@@ -467,6 +468,10 @@ def main(
                 q.put(COMMAND_CHANGE_POSITION)
             start_time = time.time()
             stage = COMMAND_CHANGE_POSITION
+            if is_dashboard:
+                channel.basic_publish(
+                    exchange="", routing_key="mode", body="CHANGE POSITIONS",
+                )
             dance_position_display()
             results_display(
                 [
@@ -485,6 +490,10 @@ def main(
             for q in queues:
                 q.put(COMMAND_START_DANCING)
             stage = COMMAND_START_DANCING
+            if is_dashboard:
+                channel.basic_publish(
+                    exchange="", routing_key="mode", body="START DANCING",
+                )
             dance_move_display()
             results_display(
                 [
@@ -520,6 +529,10 @@ def main(
             if is_dashboard:
                 channel.basic_publish(
                     exchange="", routing_key="results", body=dashboard_data,
+                )
+            if is_dashboard:
+                channel.basic_publish(
+                    exchange="", routing_key="mode", body="RESETTING... DO NOT MOVE...",
                 )
             reset_display()
             results_display(
@@ -623,8 +636,6 @@ if __name__ == "__main__":
     LEFT_RIGHT_DELAY = 30
     RESET_DELAY = 90
     DANCING_DELAY = 90
-
-    is_dasboard = False
 
     if model_type == "dnn":
         model_path = "/home/nwjbrandon/models/dnn_model.pth"
