@@ -396,7 +396,7 @@ def tabulate_positions(
                 final_positions[d2_pos_final] = 2
                 final_positions[final_positions.index(-1)] = 1
                 return final_positions
-        elif main_dancer_id == 1:
+        elif guest_dancer_id == 1:
             # 0 - fallback; 1 - guest; 2 - main
             if d1_pos_final == d3_pos_final:
                 return random.choice(MAIN_DANCER_3_POSITIONS[d3_pos_final])

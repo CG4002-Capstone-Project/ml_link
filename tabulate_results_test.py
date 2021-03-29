@@ -90,7 +90,11 @@ def tabulate_sync_delay_three_error():
 def tabulate_positions_no_errors():
     dancer_positions = [1, 1, -2]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [3, 1, 2]
 
@@ -98,7 +102,11 @@ def tabulate_positions_no_errors():
 def tabulate_positions_no_errors2():
     dancer_positions = [1, -2, 1]
     original_positions = [3, 1, 2]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [2, 3, 1]
 
@@ -106,7 +114,11 @@ def tabulate_positions_no_errors2():
 def tabulate_positions_no_errors3():
     dancer_positions = [-2, 1, 1]
     original_positions = [2, 3, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [1, 2, 3]
 
@@ -114,7 +126,11 @@ def tabulate_positions_no_errors3():
 def tabulate_positions_no_errors4():
     dancer_positions = [2, -1, -1]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [2, 3, 1]
 
@@ -122,7 +138,11 @@ def tabulate_positions_no_errors4():
 def tabulate_positions_no_errors5():
     dancer_positions = [-1, 2, -1]
     original_positions = [2, 3, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [3, 1, 2]
 
@@ -130,7 +150,11 @@ def tabulate_positions_no_errors5():
 def tabulate_positions_no_errors6():
     dancer_positions = [-1, -1, 2]
     original_positions = [3, 1, 2]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [1, 2, 3]
 
@@ -138,7 +162,11 @@ def tabulate_positions_no_errors6():
 def tabulate_positions_no_errors7():
     dancer_positions = [0, 0, 0]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [1, 2, 3]
 
@@ -146,7 +174,11 @@ def tabulate_positions_no_errors7():
 def tabulate_positions_no_errors8():
     dancer_positions = [0, 1, -1]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [1, 3, 2]
 
@@ -154,7 +186,11 @@ def tabulate_positions_no_errors8():
 def tabulate_positions_no_errors9():
     dancer_positions = [1, -1, 0]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [2, 1, 3]
 
@@ -162,7 +198,11 @@ def tabulate_positions_no_errors9():
 def tabulate_positions_no_errors10():
     dancer_positions = [2, 0, -2]
     original_positions = [1, 2, 3]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [3, 2, 1]
 
@@ -170,7 +210,11 @@ def tabulate_positions_no_errors10():
 def tabulate_positions_no_errors11():
     dancer_positions = [-2, 2, 0]
     original_positions = [2, 3, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [1, 3, 2]
 
@@ -178,7 +222,11 @@ def tabulate_positions_no_errors11():
 def tabulate_positions_no_errors12():
     dancer_positions = [-1, 1, 0]
     original_positions = [3, 2, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
     assert positions == [3, 1, 2]
 
@@ -186,17 +234,85 @@ def tabulate_positions_no_errors12():
 def tabulate_positions_below_threshold_error():
     dancer_positions = [1, -4, 0]
     original_positions = [3, 2, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
-    assert positions == [2, -1, 1]
+    assert positions == [2, 3, 1]
+
+
+def tabulate_positions_below_threshold_error2():
+    dancer_positions = [1, -4, 0]
+    original_positions = [3, 2, 1]
+    main_dancer_id = 0
+    guest_dancer_id = 1
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
+    print(positions)
+    assert positions == [3, 2, 1]
 
 
 def tabulate_positions_above_threshold_error():
     dancer_positions = [1, 5, 0]
     original_positions = [3, 2, 1]
-    positions = tabulate_positions(dancer_positions, original_positions)
+    main_dancer_id = 0
+    guest_dancer_id = 2
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
     print(positions)
-    assert positions == [3, -1, 1]
+    assert positions == [3, 2, 1] or positions == [2, 3, 1]
+
+
+def tabulate_positions_above_threshold_error2():
+    dancer_positions = [1, 5, 0]
+    original_positions = [3, 2, 1]
+    main_dancer_id = 0
+    guest_dancer_id = 1
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
+    print(positions)
+    assert positions == [3, 2, 1]
+
+
+def tabulate_positions_main_dancer1():
+    dancer_positions = [1, 5, 0]
+    original_positions = [3, 2, 1]
+    main_dancer_id = 1
+    guest_dancer_id = 0
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
+    print(positions)
+    assert positions == [3, 1, 2]
+
+
+def tabulate_positions_main_dancer2():
+    dancer_positions = [1, 5, 0]
+    original_positions = [3, 2, 1]
+    main_dancer_id = 2
+    guest_dancer_id = 1
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
+    print(positions)
+    assert positions == [3, 2, 1]
+
+
+def tabulate_positions_main_dancer3():
+    dancer_positions = [1, 5, 0]
+    original_positions = [3, 2, 1]
+    main_dancer_id = 2
+    guest_dancer_id = 0
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
+    print(positions)
+    assert positions == [3, 1, 2]
 
 
 def tabulate_results_no_error():
@@ -248,5 +364,10 @@ if __name__ == "__main__":
     tabulate_positions_no_errors11()
     tabulate_positions_no_errors12()
     tabulate_positions_below_threshold_error()
+    tabulate_positions_below_threshold_error2()
     tabulate_positions_above_threshold_error()
+    tabulate_positions_above_threshold_error2()
+    tabulate_positions_main_dancer1()
+    tabulate_positions_main_dancer2()
+    tabulate_positions_main_dancer3()
     tabulate_results_no_error()
