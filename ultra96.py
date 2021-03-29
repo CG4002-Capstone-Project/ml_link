@@ -41,6 +41,23 @@ DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
 # Group ID number
 GROUP_ID = 18
 
+# key represent the position of main dancer
+MAIN_DANCER_1_POSITIONS = {
+    0: [[1, 2, 3], [1, 3, 2]],
+    1: [[2, 1, 3], [3, 1, 2]],
+    2: [[3, 2, 1], [2, 3, 1]],
+}
+MAIN_DANCER_2_POSITIONS = {
+    0: [[2, 1, 3], [2, 3, 1],],
+    1: [[1, 2, 3], [3, 2, 1]],
+    2: [[3, 1, 2], [1, 3, 2]],
+}
+MAIN_DANCER_3_POSITIONS = {
+    0: [[3, 2, 1], [3, 1, 2]],
+    1: [[2, 3, 1], [1, 3, 2],],
+    2: [[1, 2, 3], [2, 1, 3],],
+}
+
 
 def calculate_ultra96_time(beetle_time, offset):
     return beetle_time - offset
@@ -303,11 +320,10 @@ def tabulate_sync_delay(dancer_start_times):
         return random.choice(fallbacks)
     return sync_delay
 
-    # dancer_positions = [1, 1, -2]
-    # original_positions = [3, 1, 2]
 
-
-def tabulate_positions(dancer_positions, original_positions):
+def tabulate_positions(
+    dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+):
     # supposedly final positions
     d1_pos = original_positions.index(1) + dancer_positions[0]
     d2_pos = original_positions.index(2) + dancer_positions[1]
@@ -317,6 +333,81 @@ def tabulate_positions(dancer_positions, original_positions):
     d1_pos_final = max(0, min(2, d1_pos))
     d2_pos_final = max(0, min(2, d2_pos))
     d3_pos_final = max(0, min(2, d3_pos))
+
+    final_positions = [-1, -1, -1]
+
+    # assumes that main dancer is always right and guest dancer is often wrong
+    if main_dancer_id == 0:
+
+        if guest_dancer_id == 0:
+            # should never happen but just random choices
+            return random.choice(POSITIONS)
+        elif guest_dancer_id == 1:
+            # 0 - main; 1 - guest; 2 - fallback
+            if d1_pos_final == d3_pos_final:
+                return random.choice(MAIN_DANCER_1_POSITIONS[d1_pos_final])
+            else:
+                final_positions[d1_pos_final] = 1
+                final_positions[d3_pos_final] = 3
+                final_positions[final_positions.index(-1)] = 2
+                return final_positions
+        else:
+            # 0 - main; 1 - fallback; 2 - guest
+            if d1_pos_final == d2_pos_final:
+                return random.choice(MAIN_DANCER_1_POSITIONS[d1_pos_final])
+            else:
+                final_positions[d1_pos_final] = 1
+                final_positions[d2_pos_final] = 2
+                final_positions[final_positions.index(-1)] = 3
+                return final_positions
+
+    elif main_dancer_id == 1:
+
+        if guest_dancer_id == 0:
+            # 0 - guest; 1 - main; 2 - fallback
+            if d2_pos_final == d3_pos_final:
+                return random.choice(MAIN_DANCER_2_POSITIONS[d2_pos_final])
+            else:
+                final_positions[d2_pos_final] = 2
+                final_positions[d3_pos_final] = 3
+                final_positions[final_positions.index(-1)] = 1
+                return final_positions
+        elif guest_dancer_id == 1:
+            # should never happen but just random choices
+            return random.choice(POSITIONS)
+        else:
+            # 0 - fallback; 1 - main; 2 - guest
+            if d1_pos_final == d2_pos_final:
+                return random.choice(MAIN_DANCER_2_POSITIONS[d2_pos_final])
+            else:
+                final_positions[d2_pos_final] = 2
+                final_positions[d1_pos_final] = 1
+                final_positions[final_positions.index(-1)] = 3
+                return final_positions
+
+    else:
+
+        if guest_dancer_id == 0:
+            # 0 - guest; 1 - fallback; 2 - main
+            if d2_pos_final == d3_pos_final:
+                return random.choice(MAIN_DANCER_3_POSITIONS[d3_pos_final])
+            else:
+                final_positions[d3_pos_final] = 3
+                final_positions[d2_pos_final] = 2
+                final_positions[final_positions.index(-1)] = 1
+                return final_positions
+        elif main_dancer_id == 1:
+            # 0 - fallback; 1 - guest; 2 - main
+            if d1_pos_final == d3_pos_final:
+                return random.choice(MAIN_DANCER_3_POSITIONS[d3_pos_final])
+            else:
+                final_positions[d3_pos_final] = 3
+                final_positions[d1_pos_final] = 1
+                final_positions[final_positions.index(-1)] = 2
+                return final_positions
+        else:
+            # should never happen but just random choices
+            return random.choice(POSITIONS)
 
     final_positions = [-1, -1, -1]
     final_positions[d3_pos_final] = 3
@@ -342,7 +433,9 @@ def tabulate_results(
         dancer_moves, dancer_accuracies, main_dancer_id, guest_dancer_id
     )
     sync_delay = tabulate_sync_delay(dancer_start_times)
-    positions = tabulate_positions(dancer_positions, original_positions)
+    positions = tabulate_positions(
+        dancer_positions, original_positions, main_dancer_id, guest_dancer_id
+    )
 
     return dance_move, sync_delay, positions, accuracy
 
@@ -457,7 +550,7 @@ def main(
                 dancer_accuracies[dancer_id] = action
 
         # start changing positions if all dancers are resetted
-        if all(dancer_readiness) and stage == 0:  # NOTE: edit this for testing
+        if all(dancer_readiness[:1]) and stage == 0:  # NOTE: edit this for testing
             if counter > 0:
                 ready_display(counter)
                 time.sleep(1)
@@ -508,7 +601,7 @@ def main(
             continue
 
         # tabulate inference and reset
-        if all(dancer_moves) and stage == 2:  # NOTE: edit this for testing
+        if all(dancer_moves[:1]) and stage == 2:  # NOTE: edit this for testing
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
                 dancer_start_times,
@@ -622,6 +715,8 @@ if __name__ == "__main__":
     logger.info("model_type:" + str(model_type))
     logger.info("main_dancer_id:" + str(main_dancer_id))
     logger.info("guest_dancer_id:" + str(guest_dancer_id))
+
+    assert main_dancer_id != guest_dancer_id
 
     COMMAND_RESET = 0
     COMMAND_CHANGE_POSITION = 1
