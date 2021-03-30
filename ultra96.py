@@ -665,7 +665,9 @@ def main(
                 original_positions = my_client.receive_dancer_position()
             else:
                 original_positions = "1 2 3"
-
+            original_positions = [
+                int(position) for position in original_positions.split(" ")
+            ]
             dashboard_data = format_dashboard_data(
                 original_positions, positions, dance_move, sync_delay, accuracy
             )
@@ -701,9 +703,6 @@ def main(
             dancer_accuracies = [None, None, None]
             dancer_positions = [0, 0, 0]
             logger.info(f"received dancer postions: {original_positions}")
-            original_positions = [
-                int(position) for position in original_positions.split(" ")
-            ]
             for q in queues:
                 q.put(COMMAND_RESET)
             start_time = time.time()
