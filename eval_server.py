@@ -19,8 +19,8 @@ from Crypto.Cipher import AES
 ACTIONS = ["gun", "sidepump", "hair"]
 POSITIONS = ["1 2 3", "3 2 1", "2 3 1", "3 1 2", "1 3 2", "2 1 3"]
 LOG_DIR = os.path.join(os.path.dirname(__file__), "evaluation_logs")
-NUM_MOVE_PER_ACTION = 1
-N_TRANSITIONS = 2
+NUM_MOVE_PER_ACTION = 3
+N_TRANSITIONS = 3
 MESSAGE_SIZE = 3  # position, 1 action, sync
 
 

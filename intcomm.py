@@ -106,7 +106,7 @@ class IntComm:
                     print("checksum failed for EMG data")
                     return self.get_line()
                 else:
-                    print(parsedline)
+                    # print(parsedline)
                     return parsedline
 
             # acc/gyr data messages

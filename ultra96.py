@@ -440,11 +440,17 @@ def tabulate_results(
     return dance_move, sync_delay, positions, accuracy
 
 
-def format_result(original_positions, positions, dance_move, sync_delay, accuracy):
+def format_eval_data(original_positions, positions, dance_move, sync_delay, accuracy):
     eval_data = f"{positions[0]} {positions[1]} {positions[2]}|{dance_move}|{round(sync_delay, 4)}|"
+    return eval_data
+
+
+def format_dashboard_data(
+    original_positions, positions, dance_move, sync_delay, accuracy
+):
     # eval_server_positions|detected move|detected_positions|sync_delay|accuracy
     dashboard_data = f"{original_positions[0]} {original_positions[1]} {original_positions[2]}|{dance_move}|{positions[0]} {positions[1]} {positions[2]}|{round(sync_delay, 4)}|{round(accuracy, 4)}"
-    return eval_data, dashboard_data
+    return dashboard_data
 
 
 def main(
@@ -582,7 +588,7 @@ def main(
 
         # start changing positions if all dancers are resetted
         if (
-            all(dancer_readiness) or (time.time() - start_time > 12)
+            all(dancer_readiness) or (time.time() - start_time > 14)
         ) and stage == 0:  # NOTE: edit this for testing
             if counter > 0:
                 ready_display(counter)
@@ -612,7 +618,7 @@ def main(
             continue
 
         # start dancing after changing positions for some interval
-        if time.time() - start_time > 6 and stage == 1:
+        if time.time() - start_time > 7 and stage == 1:
             for q in queues:
                 q.put(COMMAND_START_DANCING)
             start_time = time.time()
@@ -636,7 +642,7 @@ def main(
 
         # tabulate inference and reset
         if (
-            all(dancer_moves) or (time.time() - start_time > 12)
+            all(dancer_moves) or (time.time() - start_time > 14)
         ) and stage == 2:  # NOTE: edit this for testing
             dance_move, sync_delay, positions, accuracy = tabulate_results(
                 dancer_readiness,
@@ -650,11 +656,20 @@ def main(
             )
 
             # display and sends results
-            eval_data, dashboard_data = format_result(
+            eval_data = format_eval_data(
                 original_positions, positions, dance_move, sync_delay, accuracy
             )
             if is_eval_server:
                 my_client.send_message(eval_data)
+            if is_eval_server:
+                original_positions = my_client.receive_dancer_position()
+            else:
+                original_positions = "1 2 3"
+
+            dashboard_data = format_dashboard_data(
+                original_positions, positions, dance_move, sync_delay, accuracy
+            )
+
             if is_dashboard:
                 channel.basic_publish(
                     exchange="", routing_key="results", body=dashboard_data,
@@ -685,10 +700,6 @@ def main(
             dancer_moves = [None, None, None]
             dancer_accuracies = [None, None, None]
             dancer_positions = [0, 0, 0]
-            if is_eval_server:
-                original_positions = my_client.receive_dancer_position()
-            else:
-                original_positions = "1 2 3"
             logger.info(f"received dancer postions: {original_positions}")
             original_positions = [
                 int(position) for position in original_positions.split(" ")

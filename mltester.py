@@ -29,14 +29,14 @@ if __name__ == "__main__":
         if not is_ready:
             continue
 
-        # # left or right
-        # action = inference.infer_dancer_left_right()
-        # if action is not None:
-        #     print(action)
-        #     inference.skip_count = 30
-
-        # dance move
-        action = inference.infer_dancer_moves()
+        # left or right
+        action = inference.infer_dancer_left_right()
         if action is not None:
             print(action)
-            inference.skip_count = 60
+            inference.skip_count = 30
+
+        # # dance move
+        # action = inference.infer_dancer_moves()
+        # if action is not None:
+        #     print(action)
+        #     inference.skip_count = 60
