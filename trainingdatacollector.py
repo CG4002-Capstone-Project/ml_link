@@ -1,27 +1,113 @@
-import pandas as pd
-
 from intcomm import IntComm
+from random import randrange
+import time
+import os
+import argparse
+
+MOVES = [
+        "dab",
+        "elbowkick",
+        "listen",
+        "pointhigh",
+        "hair",
+        "gun",
+        "sidepump",
+        "wipetable",
+        "logout",
+        "idle"
+]
+positions = [
+        "nothing", # to simulate dancing immediately
+        "right",
+        "left",
+        "rightright",
+        "leftleft"
+]
+
+NUM_S_PER_MOVE = 120
+NUM_MOVES = 15
+
+def clr():
+    if os.name == 'posix':
+        _ = os.system('clear')
+    else:
+      _ = os.system('cls')
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Internal Comms")
+    parser.add_argument(
+        "--serial", default=0, help="select serial port", type=int, required=True
+    )
+    args = parser.parse_args()
+    serial_port_entered = args.serial
 
-    # change this according to your serial port
-    # 0: "/dev/ttyACM0"
-    # 1: "/dev/ttyACM1"
-    # 2: "/dev/ttyACM2"
-    intcomm = IntComm(0)
+    print("Dance Data Collection Script\n"
+          "============================\n")
+
     data = []
-    print("Start")
-    try:
-        while True:
-            point = intcomm.get_acc_gyr_data()
-            print("data is...")
-            print(point)
-            data.append(point)
-    except KeyboardInterrupt:
-        print("terminating program")
-    except Exception:
-        print("an error occured")
 
-    df = pd.DataFrame(data)
-    df.columns = ["gx", "gy", "gz", "ax", "ay", "az"]
-    df.to_csv("green_left.csv", sep=",")
+    # Get type
+    line = ""
+    while not (line == "m" or line == "s"):
+        line = input("Do you want to record multiple moves(m) or just a single move(s)? ")
+
+    # Get type
+    pos = ""
+    while not (pos == "y" or pos == "n"):
+        pos = input("Are you collecting positional data? (y/n) ")
+
+    moves = MOVES
+    if line == "s":
+        print("The following moves are available: ")
+        for i, move in list(enumerate(moves)):
+            print("%d: %s" % (i, move))
+        print("")
+
+        smove = -1
+        while smove < 0 or smove >= len(moves):
+            smove = int(input("Which move do you want to record? (0-%d) " % len(moves)))
+
+        moves = [MOVES[smove]]
+
+    timeout = 3
+    while (timeout > 0):
+        clr()
+        print("Starting in %ds" % timeout)
+        timeout = timeout - 1
+        time.sleep(1)
+
+    intcomm = IntComm(0)
+
+    for i in range(NUM_MOVES + 1):
+        move = moves[randrange(len(moves))]
+        if pos == "y":
+            move = positions[i % (len(positions))] + "+" + move
+
+        clr()
+        print("%d: %s" % (i, move if i > 0 else "Please wait"))
+
+        data_c = 0
+        while data_c < NUM_S_PER_MOVE:
+            point = str(i) + "," + intcomm.get_line()[1:]
+            if pos == "y":
+                point = point + "," + positions[i % (len(positions))]
+            else:
+                point = point + "," + move
+            data_c = data_c + 1
+
+            if i > 0:
+                data.append(point)
+
+    data = "\n".join(data) + "\n"
+
+    line = ""
+    while not (line == "y" or line == "n"):
+        line = input("Do you want to keep the data? (y/n) ")
+
+    if line == "y":
+        f = open("data.csv", "a+")
+        f.write(data)
+        f.close()
+
+
+
