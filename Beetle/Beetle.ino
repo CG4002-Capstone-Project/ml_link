@@ -53,21 +53,6 @@ VectorInt16 gyro;
 // ===                      INITIAL SETUP                       ===
 // ================================================================
 
-
-struct DataPacket
-{
-    int type;
-    int yaw;
-    int pitch;
-    int roll;
-    int accx;
-    int accy;
-    int accz;
-    int padding1;
-    int padding2;
-     int checksum;
-};
-
 void setup() {
     // join I2C bus (I2Cdev library doesn't do this automatically)
     #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
@@ -81,13 +66,11 @@ void setup() {
     while (!Serial); 
     
     mpu.initialize();
-    Serial.println(mpu.testConnection() ? F("!MPU6050 connection successful") : F("!MPU6050 connection failed"));
-
-    // wait for ready
-    Serial.println(F("!Send any character to begin DMP programming and demo: "));
+    if (!mpu.testConnection()) {
+      Serial.println(F("!MPU6050 connection failed"));
+    }
+  
     while (Serial.available() && Serial.read()); // empty buffer
-    while (!Serial.available());                 // wait for data
-    while (Serial.available() && Serial.read()); // empty buffer again
     devStatus = mpu.dmpInitialize();
 
     // supply your own gyro offsets here, scaled for min sensitivity
@@ -131,10 +114,7 @@ void loop() {
       mpu.getFIFOBytes(fifoBuffer, packetSize);
       fifoCount -= packetSize;
     }
-
-    // Packet format
-    // #yaw pitch roll accx accy accz\n
-
+    
     Serial.print("#");
 
     // display Euler angles in degrees
@@ -142,15 +122,13 @@ void loop() {
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-
     mpu.dmpGetGyro(&gyro, fifoBuffer);
     Serial.print(gyro.x);
-    Serial.print(" ");
+    Serial.print(",");
     Serial.print(gyro.y);
-    Serial.print(" ");
+    Serial.print(",");
     Serial.print(gyro.z);
-    Serial.print(" ");
-
+    Serial.print(",");
 
     // display real acceleration, adjusted to remove gravity
     mpu.dmpGetQuaternion(&q, fifoBuffer);
@@ -158,14 +136,14 @@ void loop() {
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
 
-
     Serial.print(aaReal.x);
-    Serial.print(" ");
+    Serial.print(",");
     Serial.print(aaReal.y);
-    Serial.print(" ");
+    Serial.print(",");
     Serial.print(aaReal.z);
-    Serial.print(" ");
-    int checksum = gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z;
-    Serial.println(checksum);
-    delay(27);
+
+    Serial.print("\n");
+
+    // Experimentally determined to send data at a reliable 20Hz
+    delay(37);
 }
