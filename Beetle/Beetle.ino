@@ -142,6 +142,9 @@ void loop() {
     Serial.print(",");
     Serial.print(aaReal.z);
 
+    Serial.print(",");
+    Serial.print(5); // fake EMG
+
     Serial.print("\n");
 
     // Experimentally determined to send data at a reliable 20Hz

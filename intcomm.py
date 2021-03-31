@@ -41,8 +41,8 @@ if __name__ == "__main__":
 
         print(line)
 
-        if count % 150 == 0:
+        if count % 100 == 0:
             end = time.time()
-            print("Receiving data at %f Hz" % (150 / (end - start)))
+            print("Receiving data at %f Hz" % (100 / (end - start)))
             start = time.time()
 
