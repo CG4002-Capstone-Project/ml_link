@@ -1,9 +1,11 @@
 import argparse
 import time
 import traceback
+
 import serial
 
 SERIAL_PORTS = ["/dev/cu.usbmodem14201", "/dev/ttyACM1", "/dev/ttyACM2"]
+
 
 class IntComm:
     def __init__(self, serial_port, dancer=1):
@@ -15,7 +17,7 @@ class IntComm:
     def get_line(self):
         try:
             line = self.ser.readline().decode().strip()
-            if len(line) == 0 or line[0] != '#':
+            if len(line) == 0 or line[0] != "#":
                 print("Invalid line:", line)
                 return self.get_line()
             return line
@@ -24,6 +26,7 @@ class IntComm:
         except:
             traceback.print_exc()
             return self.get_line()
+
 
 if __name__ == "__main__":
 
@@ -51,4 +54,3 @@ if __name__ == "__main__":
             end = time.time()
             print("Receiving data at %f Hz" % (100 / (end - start)))
             start = time.time()
-

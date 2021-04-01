@@ -8,28 +8,63 @@
 #
 # Reference: https://blog.eccouncil.org/what-is-ssh-port-forwarding/
 
+import logging
 import os
 import socket
+import sys
+import time
+import traceback
 
-from intcomm import SERIAL_PORT, IntComm
+from intcomm import IntComm
 
 PORT = int(os.environ["DANCE_PORT"])
 DANCER_ID = int(os.environ["DANCER_ID"])
 HOST = "localhost"
 
 
+# setup logging
+file_handler = logging.FileHandler(
+    filename=f'logs/laptop_{DANCER_ID}_{time.strftime("%Y%m%d-%H%M%S")}.log'
+)
+stdout_handler = logging.StreamHandler(sys.stdout)
+handlers = [file_handler, stdout_handler]
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(asctime)s] {%(filename)s:%(lineno)d} %(levelname)s - %(message)s",
+    handlers=handlers,
+)
+logger = logging.getLogger("ultra96")
+
+
 class Laptop:
     def __init__(self):
-        self.intcomm = IntComm(SERIAL_PORT, DANCER_ID)
+        self.intcomm = IntComm(0, DANCER_ID)
+        self.buffer = []
+
+    def collect_data(self):
+        # gyrx,gyry,gyrz,accx,accy,accz[,emg][,timestamp]
+        data = self.intcomm.get_line()
+        data = f"{data},{DANCER_ID}\n"
+
+        logger.info(data)
+        self.buffer.append(data)
+
+    def send_data(self, sock):
+        if len(self.buffer) == 5:
+            line = "".join(self.buffer)
+            sock.sendall(line.encode())
+            self.buffer = []
 
     def run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect((HOST, PORT))
 
             while True:
-                line = "#" + self.intcomm.get_line() + "\n"
-                print("Sending", line)
-                sock.sendall(line.encode())
+                try:
+                    self.collect_data()
+                    self.send_data(sock)
+                except Exception:
+                    logger.error(traceback.format_exc())
 
 
 if __name__ == "__main__":

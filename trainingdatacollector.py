@@ -1,37 +1,40 @@
-from intcomm import IntComm
-from random import randrange
-import time
-import os
 import argparse
+import os
+import time
+from random import randrange
+
+from intcomm import IntComm
 
 MOVES = [
-        "dab",
-        "elbowkick",
-        "listen",
-        "pointhigh",
-        "hair",
-        "gun",
-        "sidepump",
-        "wipetable",
-        "logout",
-        "idle"
+    "dab",
+    "elbowkick",
+    "listen",
+    "pointhigh",
+    "hair",
+    "gun",
+    "sidepump",
+    "wipetable",
+    "logout",
+    "idle",
 ]
 positions = [
-        "nothing", # to simulate dancing immediately
-        "right",
-        "left",
-        "rightright",
-        "leftleft"
+    "nothing",  # to simulate dancing immediately
+    "right",
+    "left",
+    "rightright",
+    "leftleft",
 ]
 
 NUM_S_PER_MOVE = 120
 NUM_MOVES = 15
 
+
 def clr():
-    if os.name == 'posix':
-        _ = os.system('clear')
+    if os.name == "posix":
+        _ = os.system("clear")
     else:
-      _ = os.system('cls')
+        _ = os.system("cls")
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Internal Comms")
@@ -41,15 +44,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
     serial_port_entered = args.serial
 
-    print("Dance Data Collection Script\n"
-          "============================\n")
+    print("Dance Data Collection Script\n" "============================\n")
 
     data = []
 
     # Get type
     line = ""
     while not (line == "m" or line == "s"):
-        line = input("Do you want to record multiple moves(m) or just a single move(s)? ")
+        line = input(
+            "Do you want to record multiple moves(m) or just a single move(s)? "
+        )
 
     # Get type
     pos = ""
@@ -70,7 +74,7 @@ if __name__ == "__main__":
         moves = [MOVES[smove]]
 
     timeout = 3
-    while (timeout > 0):
+    while timeout > 0:
         clr()
         print("Starting in %ds" % timeout)
         timeout = timeout - 1
@@ -108,6 +112,3 @@ if __name__ == "__main__":
         f = open("data.csv", "a+")
         f.write(data)
         f.close()
-
-
-

@@ -61,7 +61,7 @@ class Server(threading.Thread):
         self.action_set_time = None
 
         self.idx = 0
-        self.timeout = 60
+        self.timeout = 15
         self.has_no_response = False
         self.connection = None
         self.timer = None
@@ -228,7 +228,7 @@ def add_display_label(display_window, label):
 
 def main():
     ip_addr = "localhost"
-    port_num = 8001
+    port_num = 8000
     group_id = 18
 
     my_server = Server(ip_addr, port_num, group_id)
