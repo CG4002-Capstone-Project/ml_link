@@ -146,6 +146,6 @@ void loop() {
 
     Serial.print("\n");
 
-    // Experimentally determined to send data at a reliable 20Hz
-    delay(37);
+    // Experimentally determined to send data at a reliable 25Hz
+    delay(27);
 }

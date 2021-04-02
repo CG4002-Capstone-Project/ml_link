@@ -25,8 +25,8 @@ positions = [
     "leftleft",
 ]
 
-NUM_S_PER_MOVE = 120
-NUM_MOVES = 15
+NUM_S_PER_MOVE = 150
+NUM_MOVES = 25
 
 
 def clr():
@@ -88,7 +88,7 @@ if __name__ == "__main__":
             move = positions[i % (len(positions))] + "+" + move
 
         clr()
-        print("%d: %s" % (i, move if i > 0 else "Please wait"))
+        print("%d: %s" % (i, move if i > 2 else "Please wait"))
 
         data_c = 0
         while data_c < NUM_S_PER_MOVE:
@@ -99,7 +99,7 @@ if __name__ == "__main__":
                 point = point + "," + move
             data_c = data_c + 1
 
-            if i > 0:
+            if i > 2:
                 data.append(point)
 
     data = "\n".join(data) + "\n"
