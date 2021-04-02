@@ -74,10 +74,10 @@ void setup() {
     devStatus = mpu.dmpInitialize();
 
     // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(220);
-    mpu.setYGyroOffset(76);
-    mpu.setZGyroOffset(-85);
-    mpu.setZAccelOffset(1788); // 1688 factory default for my test chip
+    mpu.setXGyroOffset(0);
+    mpu.setYGyroOffset(0);
+    mpu.setZGyroOffset(0);
+    mpu.setZAccelOffset(0); 
 
     // make sure it worked (returns 0 if so)
     if (devStatus == 0) {
@@ -122,12 +122,11 @@ void loop() {
     mpu.dmpGetGravity(&gravity, &q);
     mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
 
-    mpu.dmpGetGyro(&gyro, fifoBuffer);
-    Serial.print(gyro.x);
+    Serial.print(ypr[0] * 180/M_PI);
     Serial.print(",");
-    Serial.print(gyro.y);
+    Serial.print(ypr[1] * 180/M_PI);
     Serial.print(",");
-    Serial.print(gyro.z);
+    Serial.print(ypr[2] * 180/M_PI);
     Serial.print(",");
 
     // display real acceleration, adjusted to remove gravity
