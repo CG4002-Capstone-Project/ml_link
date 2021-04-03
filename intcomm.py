@@ -4,7 +4,7 @@ import traceback
 
 import serial
 
-SERIAL_PORTS = ["/dev/cu.usbmodem14201", "/dev/ttyACM1", "/dev/ttyACM2"]
+SERIAL_PORTS = ["/dev/cu.usbmodem14101", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 
 class IntComm:

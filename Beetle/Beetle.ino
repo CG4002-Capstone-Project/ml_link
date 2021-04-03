@@ -1,28 +1,28 @@
 /* ============================================
-I2Cdev device library code is placed under the MIT license
-Copyright (c) 2012 Jeff Rowberg
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-===============================================
+  I2Cdev device library code is placed under the MIT license
+  Copyright (c) 2012 Jeff Rowberg
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+  ===============================================
 */
 
 #include "I2Cdev.h"
 #include "MPU6050_6Axis_MotionApps20.h"
 #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-    #include "Wire.h"
+#include "Wire.h"
 #endif
 
 MPU6050 mpu;
@@ -48,104 +48,94 @@ float euler[3];         // [psi, theta, phi]    Euler angle container
 float ypr[3];           // [yaw, pitch, roll]   yaw/pitch/roll container and gravity vector
 VectorInt16 gyro;
 
-
-// ================================================================
-// ===                      INITIAL SETUP                       ===
-// ================================================================
-
 void setup() {
-    // join I2C bus (I2Cdev library doesn't do this automatically)
-    #if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
-        Wire.begin();
-        Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
-    #elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
-        Fastwire::setup(400, true);
-    #endif
+  // join I2C bus (I2Cdev library doesn't do this automatically)
+#if I2CDEV_IMPLEMENTATION == I2CDEV_ARDUINO_WIRE
+  Wire.begin();
+  Wire.setClock(400000); // 400kHz I2C clock. Comment this line if having compilation difficulties
+#elif I2CDEV_IMPLEMENTATION == I2CDEV_BUILTIN_FASTWIRE
+  Fastwire::setup(400, true);
+#endif
 
-    Serial.begin(115200);
-    while (!Serial); 
-    
-    mpu.initialize();
-    if (!mpu.testConnection()) {
-      Serial.println(F("!MPU6050 connection failed"));
-    }
-  
-    while (Serial.available() && Serial.read()); // empty buffer
-    devStatus = mpu.dmpInitialize();
+  Serial.begin(115200);
+  while (!Serial);
 
-    // supply your own gyro offsets here, scaled for min sensitivity
-    mpu.setXGyroOffset(0);
-    mpu.setYGyroOffset(0);
-    mpu.setZGyroOffset(0);
-    mpu.setZAccelOffset(0); 
+  mpu.initialize();
+  if (!mpu.testConnection()) {
+    Serial.println(F("!MPU6050 connection failed"));
+  }
 
-    // make sure it worked (returns 0 if so)
-    if (devStatus == 0) {
-        // Calibration Time: generate offsets and calibrate our MPU6050
-        mpu.CalibrateAccel(6);
-        mpu.CalibrateGyro(6);
-        mpu.setDMPEnabled(true);
-        
-        mpuIntStatus = mpu.getIntStatus();
-        dmpReady = true;
+  while (Serial.available() && Serial.read()); // empty buffer
+  devStatus = mpu.dmpInitialize();
 
-        // get expected DMP packet size for later comparison
-        packetSize = mpu.dmpGetFIFOPacketSize();
-    } else {
-        // ERROR!
-        // 1 = initial memory load failed
-        // 2 = DMP configuration updates failed
-        // (if it's going to break, usually the code will be 1)
-        Serial.print(F("!DMP Initialization failed (code "));
-        Serial.print(devStatus);
-        Serial.println(F(")"));
-    }
+  // supply your own gyro offsets here, scaled for min sensitivity
+  mpu.setXGyroOffset(0);
+  mpu.setYGyroOffset(0);
+  mpu.setZGyroOffset(0);
+  mpu.setZAccelOffset(0);
+
+  // make sure it worked (returns 0 if so)
+  if (devStatus == 0) {
+    // Calibration Time: generate offsets and calibrate our MPU6050
+    mpu.CalibrateAccel(6);
+    mpu.CalibrateGyro(6);
+    mpu.setDMPEnabled(true);
+
+    mpuIntStatus = mpu.getIntStatus();
+    dmpReady = true;
+
+    // get expected DMP packet size for later comparison
+    packetSize = mpu.dmpGetFIFOPacketSize();
+  } else {
+    // ERROR!
+    // 1 = initial memory load failed
+    // 2 = DMP configuration updates failed
+    // (if it's going to break, usually the code will be 1)
+    Serial.print(F("!DMP Initialization failed (code "));
+    Serial.print(devStatus);
+    Serial.println(F(")"));
+  }
 }
 
 void loop() {
-    // if programming failed, don't try to do anything
-    if (!dmpReady) return;
+  // if programming failed, don't try to do anything
+  if (!dmpReady) return;
 
-    mpu.resetFIFO();
-    fifoCount = mpu.getFIFOCount();
-    while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
+  mpu.resetFIFO();
+  fifoCount = mpu.getFIFOCount();
+  while (fifoCount < packetSize) fifoCount = mpu.getFIFOCount();
 
-    while(fifoCount >= packetSize){
-      mpu.getFIFOBytes(fifoBuffer, packetSize);
-      fifoCount -= packetSize;
-    }
-    
-    Serial.print("#");
+  while (fifoCount >= packetSize) {
+    mpu.getFIFOBytes(fifoBuffer, packetSize);
+    fifoCount -= packetSize;
+  }
 
-    // display Euler angles in degrees
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+  mpu.dmpGetQuaternion(&q, fifoBuffer);
+  mpu.dmpGetGravity(&gravity, &q);
+  mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
+  mpu.dmpGetAccel(&aa, fifoBuffer);
+  mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
 
-    Serial.print(ypr[0] * 180/M_PI);
-    Serial.print(",");
-    Serial.print(ypr[1] * 180/M_PI);
-    Serial.print(",");
-    Serial.print(ypr[2] * 180/M_PI);
-    Serial.print(",");
+  Serial.print("#");
 
-    // display real acceleration, adjusted to remove gravity
-    mpu.dmpGetQuaternion(&q, fifoBuffer);
-    mpu.dmpGetAccel(&aa, fifoBuffer);
-    mpu.dmpGetGravity(&gravity, &q);
-    mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+  Serial.print(ypr[0] * 180 / M_PI);
+  Serial.print(",");
+  Serial.print(ypr[1] * 180 / M_PI);
+  Serial.print(",");
+  Serial.print(ypr[2] * 180 / M_PI);
+  Serial.print(",");
 
-    Serial.print(aaReal.x);
-    Serial.print(",");
-    Serial.print(aaReal.y);
-    Serial.print(",");
-    Serial.print(aaReal.z);
+  Serial.print(aaReal.x);
+  Serial.print(",");
+  Serial.print(aaReal.y);
+  Serial.print(",");
+  Serial.print(aaReal.z);
 
-    Serial.print(",");
-    Serial.print(5); // fake EMG
+  Serial.print(",");
+  Serial.print(5); // fake EMG
 
-    Serial.print("\n");
+  Serial.print("\n");
 
-    // Experimentally determined to send data at a reliable 25Hz
-    delay(27);
+  // Experimentally determined to send data at a reliable 25Hz
+  delay(27);
 }

@@ -26,7 +26,7 @@ positions = [
 ]
 
 NUM_S_PER_MOVE = 150
-NUM_MOVES = 25
+NUM_MOVES = 50
 
 
 def clr():
@@ -76,7 +76,7 @@ if __name__ == "__main__":
     timeout = 3
     while timeout > 0:
         clr()
-        print("Starting in %ds" % timeout)
+        print("Starting in %ds, place pouch on a flat surface IN THE DIRECTION OF THE DANCER." % timeout)
         timeout = timeout - 1
         time.sleep(1)
 
@@ -88,7 +88,14 @@ if __name__ == "__main__":
             move = positions[i % (len(positions))] + "+" + move
 
         clr()
-        print("%d: %s" % (i, move if i > 2 else "Please wait"))
+
+        if i == 0:
+            msg = "Don't touch the pouch"
+        elif i <= 2:
+            msg = "Wear the pouch now"
+        else:
+            msg = move
+        print("%d: %s" % (i, msg))
 
         data_c = 0
         while data_c < NUM_S_PER_MOVE:
