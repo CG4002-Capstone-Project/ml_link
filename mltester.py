@@ -8,8 +8,8 @@ from ML import ML
 if __name__ == "__main__":
     dance_model_path = "dance_model.pth"
     dance_scaler_path = "dance_scaler.bin"
-    pos_model_path = ""
-    pos_scaler_path = ""
+    pos_model_path = "pos_model.pth"
+    pos_scaler_path = "pos_scaler.bin"
 
     ml = ML(
         on_fpga = False,

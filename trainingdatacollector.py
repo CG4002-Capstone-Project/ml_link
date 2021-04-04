@@ -14,8 +14,7 @@ MOVES = [
     "gun",
     "sidepump",
     "wipetable",
-    "logout",
-    "idle",
+    "logout"
 ]
 positions = [
     "nothing",  # to simulate dancing immediately
@@ -76,7 +75,7 @@ if __name__ == "__main__":
     timeout = 3
     while timeout > 0:
         clr()
-        print("Starting in %ds, place pouch on a flat surface IN THE DIRECTION OF THE DANCER." % timeout)
+        print("Starting in %ds, please stand in calibration position" % timeout)
         timeout = timeout - 1
         time.sleep(1)
 
@@ -90,9 +89,9 @@ if __name__ == "__main__":
         clr()
 
         if i == 0:
-            msg = "Don't touch the pouch"
+            msg = "Don't move"
         elif i <= 2:
-            msg = "Wear the pouch now"
+            msg = "Get ready"
         else:
             msg = move
         print("%d: %s" % (i, msg))
