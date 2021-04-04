@@ -1,42 +1,47 @@
 import time
+import torch
 
 from inference import Inference, load_model
 from intcomm import IntComm
+from ML import ML
 
 if __name__ == "__main__":
-    model_path = "/home/nwjbrandon/models/dnn_model.pth"
-    scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
-    model_type = "dnn"
-    verbose = True
-    model, scaler = load_model(model_type, model_path, scaler_path)
+    dance_model_path = "dance_model.pth"
+    dance_scaler_path = "dance_scaler.bin"
+    pos_model_path = ""
+    pos_scaler_path = ""
 
-    inference = Inference(
-        model, model_type, scaler, verbose, infer_dance=False, infer_position=True
+    ml = ML(
+        on_fpga = False,
+        dance_scaler_path = dance_scaler_path,
+        dance_model_path = dance_model_path,
+        pos_scaler_path = pos_scaler_path,
+        pos_model_path = pos_model_path
     )
+
     # change this according to your serial port
     # 0: "/dev/ttyACM0"
     # 1: "/dev/ttyACM1"
     # 2: "/dev/ttyACM2"
     intcomm = IntComm(0)
-    data = []
 
-    start_time = time.time()
     while True:
-        gx, gy, gz, ax, ay, az = intcomm.get_acc_gyr_data()
-        inference.append_readings(gx, gy, gz, ax, ay, az)
+        line = intcomm.get_line()
 
-        is_ready = inference.check_is_ready()
-        if not is_ready:
-            continue
+        yaw, pitch, roll, accx, accy, accz, emg = line[1:].split(",")
+        yaw, pitch, roll, accx, accy, accz = (
+            float(yaw),
+            float(pitch),
+            float(roll),
+            float(accx),
+            float(accy),
+            float(accz),
+        )
 
-        # left or right
-        action = inference.infer_dancer_left_right()
-        if action is not None:
-            print(action)
-            inference.skip_count = 30
+        ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
 
-        # # dance move
-        # action = inference.infer_dancer_moves()
-        # if action is not None:
-        #     print(action)
-        #     inference.skip_count = 60
+        pred = ml.get_pred()
+
+        if pred is not None:
+            print("Prediction", pred)
+
