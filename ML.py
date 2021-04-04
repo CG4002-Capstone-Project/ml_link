@@ -11,7 +11,7 @@ except:
 
 
 # No. of samples to determine position
-POSITION_WINDOW = 25
+POSITION_WINDOW = 90
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
@@ -44,6 +44,7 @@ class ML():
         self.load_scalers(dance_scaler_path, pos_scaler_path)
         if not on_fpga:
             self.load_models(dance_model_path, pos_model_path)
+        self.set_pos([1,2,3])
 
     def load_scalers(self, dance_scaler_path, pos_scaler_path):
         self.dance_scaler = load(dance_scaler_path)
@@ -64,6 +65,10 @@ class ML():
     def reset(self):
         self.data = [[], [], []] # data for 3 dancers
         self.preds = np.zeros(10)
+
+    def set_pos(self, p):
+        self.pos = p
+        print("Setting position to", p)
 
     def write_data(self, dancer_id, data):
         self.data[dancer_id].append(data)
@@ -101,9 +106,42 @@ class ML():
         return activities[np.argmax(self.preds)]
 
     def pred_position(self):
-        # TODO transform it to 18 channel data
-        print("WARNING: Remember to map dancers to positions")
-        return [1,2,3]
+        idle_point = [0] * 6 # Sentinel value for missing data
+
+        samples = [] # need to insert POSITION_WINDOW x 18 data
+        for i in range(POSITION_WINDOW):
+            samples.append([])
+
+        # add data in if available
+        for x in self.pos:
+            i = x - 1
+            for j in range(POSITION_WINDOW):
+                if len(self.data[i]) >= POSITION_WINDOW:
+                    samples[j] += self.data[i][j]
+                else:
+                    samples[j] += idle_point
+
+        result = 0
+        samples = self.scale_pos_data(samples)
+
+        if not self.on_fpga:
+            inp = torch.tensor(samples)
+            out = self.pos_model(inp.float())
+            result = np.argmax(out.detach().numpy())
+        else:
+            pass # TODO
+
+        # Get permutation and map back
+        perms = [[1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3, 2, 1]]
+        result = perms[result]
+
+        # permute back
+        # TODO VERIFY LOGIC
+        result[0] = self.pos[result[0] - 1]
+        result[1] = self.pos[result[1] - 1]
+        result[2] = self.pos[result[2] - 1]
+
+        return result
 
     def get_pred(self):
         mx_samples = max([len(x) for x in self.data])

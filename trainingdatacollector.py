@@ -25,7 +25,7 @@ positions = [
 ]
 
 NUM_S_PER_MOVE = 150
-NUM_MOVES = 50
+NUM_MOVES = 25
 
 
 def clr():
