@@ -19,7 +19,7 @@ class MCNN(nn.Module):
         self.relu3 = nn.ReLU()
 
         self.fc2 = nn.Linear(64, 10)
-        self.sm = nn.Softmax(dim=1)
+        self.sm1 = nn.Softmax(dim=1)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -35,7 +35,7 @@ class MCNN(nn.Module):
         x = self.relu3(x)
 
         x = self.fc2(x)
-        x = self.sm(x)
+        x = self.sm1(x)
 
         return x
 
