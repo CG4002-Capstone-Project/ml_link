@@ -1,10 +1,9 @@
 import argparse
 import time
-import traceback
 
 import serial
 
-SERIAL_PORTS = ["/dev/cu.usbmodem14101", "/dev/ttyACM1", "/dev/ttyACM2"]
+SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 
 class IntComm:
@@ -15,17 +14,7 @@ class IntComm:
         print("Opened serial port %s" % SERIAL_PORTS[serial_port])
 
     def get_line(self):
-        try:
-            line = self.ser.readline().decode().strip()
-            if len(line) == 0 or line[0] != "#":
-                print("Invalid line:", line)
-                return self.get_line()
-            return line
-        except KeyboardInterrupt:
-            raise
-        except:
-            traceback.print_exc()
-            return self.get_line()
+        return self.ser.readline().decode().strip()
 
 
 if __name__ == "__main__":

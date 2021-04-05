@@ -1,9 +1,7 @@
-import torch
 import torch.nn as nn
 
 
 class MCNN(nn.Module):
-
     def __init__(self):
         super().__init__()
         self.conv1 = nn.Conv1d(6, 16, 5)
@@ -38,6 +36,7 @@ class MCNN(nn.Module):
         x = self.sm1(x)
 
         return x
+
 
 class PCNN(nn.Module):
     def __init__(self):

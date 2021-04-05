@@ -14,7 +14,7 @@ MOVES = [
     "gun",
     "sidepump",
     "wipetable",
-    "logout"
+    "logout",
 ]
 positions = [
     "nothing",  # to simulate dancing immediately

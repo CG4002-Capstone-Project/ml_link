@@ -1,10 +1,11 @@
+import time
+
 import numpy as np
 from joblib import load
-import time
 
 try:
     import torch
-    import torch.nn as nn
+
     from cnns import MCNN, PCNN
 except:
     print("Torch import failed")
@@ -34,17 +35,25 @@ activities = [
     "sidepump",
     "wipetable",
     "logout",
-    "idle"
+    "idle",
 ]
 
-class ML():
-    def __init__(self, on_fpga, dance_scaler_path, pos_scaler_path, dance_model_path = "", pos_model_path = ""):
+
+class ML:
+    def __init__(
+        self,
+        on_fpga,
+        dance_scaler_path,
+        pos_scaler_path,
+        dance_model_path="",
+        pos_model_path="",
+    ):
         self.on_fpga = on_fpga
         self.reset()
         self.load_scalers(dance_scaler_path, pos_scaler_path)
         if not on_fpga:
             self.load_models(dance_model_path, pos_model_path)
-        self.set_pos([1,2,3])
+        self.set_pos([1, 2, 3])
 
     def load_scalers(self, dance_scaler_path, pos_scaler_path):
         self.dance_scaler = load(dance_scaler_path)
@@ -53,22 +62,23 @@ class ML():
     def load_models(self, dance_model_path, pos_model_path):
         if not self.on_fpga:
             dance_model = MCNN()
-            dance_model.load_state_dict(torch.load(dance_model_path, map_location='cpu'))
+            dance_model.load_state_dict(
+                torch.load(dance_model_path, map_location="cpu")
+            )
             dance_model.eval()
             self.dance_model = dance_model
 
             pos_model = PCNN()
-            pos_model.load_state_dict(torch.load(pos_model_path, map_location='cpu'))
+            pos_model.load_state_dict(torch.load(pos_model_path, map_location="cpu"))
             pos_model.eval()
             self.pos_model = pos_model
 
     def reset(self):
-        self.data = [[], [], []] # data for 3 dancers
+        self.data = [[], [], []]  # data for 3 dancers
         self.preds = np.zeros(10)
 
     def set_pos(self, p):
         self.pos = p
-        print("Setting position to", p)
 
     def write_data(self, dancer_id, data):
         self.data[dancer_id].append(data)
@@ -100,15 +110,15 @@ class ML():
                 out = self.dance_model(inp.float())
                 self.preds = self.preds + out.detach().numpy()
             else:
-                pass # TODO FPGA PREDICTION HERE
+                pass  # TODO FPGA PREDICTION HERE
 
     def pred_dance_move(self):
         return activities[np.argmax(self.preds)]
 
     def pred_position(self):
-        idle_point = [0] * 6 # Sentinel value for missing data
+        idle_point = [0] * 6  # Sentinel value for missing data
 
-        samples = [] # need to insert POSITION_WINDOW x 18 data
+        samples = []  # need to insert POSITION_WINDOW x 18 data
         for i in range(POSITION_WINDOW):
             samples.append([])
 
@@ -129,10 +139,10 @@ class ML():
             out = self.pos_model(inp.float())
             result = np.argmax(out.detach().numpy())
         else:
-            pass # TODO
+            pass  # TODO
 
         # Get permutation and map back
-        perms = [[1,2,3], [1,3,2], [2,1,3], [2,3,1], [3,1,2], [3, 2, 1]]
+        perms = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]
         result = perms[result]
 
         # permute back
@@ -146,15 +156,14 @@ class ML():
     def get_pred(self):
         mx_samples = max([len(x) for x in self.data])
 
-        if mx_samples >= POSITION_WINDOW + DANCE_WINDOW + 10: # 10 is a small buffer to account for network variation
+        if (
+            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + 10
+        ):  # 10 is a small buffer to account for network variation
             dance_move = self.pred_dance_move()
             pos = self.pred_position()
             self.reset()
             return (dance_move, pos)
         elif mx_samples >= POSITION_WINDOW + DANCE_SAMPLES:
             dance_move = self.pred_dance_move()
-            print("Intermediate prediction", dance_move)
-            print(self.preds)
 
         return None
-

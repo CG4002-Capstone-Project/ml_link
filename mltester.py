@@ -1,7 +1,3 @@
-import time
-import torch
-
-from inference import Inference, load_model
 from intcomm import IntComm
 from ML import ML
 
@@ -12,11 +8,11 @@ if __name__ == "__main__":
     pos_scaler_path = "pos_scaler.bin"
 
     ml = ML(
-        on_fpga = False,
-        dance_scaler_path = dance_scaler_path,
-        dance_model_path = dance_model_path,
-        pos_scaler_path = pos_scaler_path,
-        pos_model_path = pos_model_path
+        on_fpga=False,
+        dance_scaler_path=dance_scaler_path,
+        dance_model_path=dance_model_path,
+        pos_scaler_path=pos_scaler_path,
+        pos_model_path=pos_model_path,
     )
 
     # change this according to your serial port
@@ -44,4 +40,3 @@ if __name__ == "__main__":
 
         if pred is not None:
             print("Prediction", pred)
-

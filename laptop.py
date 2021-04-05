@@ -42,12 +42,20 @@ class Laptop:
         self.buffer = []
 
     def collect_data(self):
-        # gyrx,gyry,gyrz,accx,accy,accz[,emg][,timestamp]
+        # #yaw,pitch,roll,accx,accy,accz,emg
         data = self.intcomm.get_line()
-        data = f"{data},{DANCER_ID}\n"
+        try:
+            if len(data) == 0 or data[0] != "#":
+                logger.error("Invalid data:", data)
+                raise "Invalid data"
 
-        logger.info(data)
-        self.buffer.append(data)
+            data = f"#{DANCER_ID},{data[1:]}\n"
+            logger.info(data)
+            self.buffer.append(data)
+        except:
+            logger.error(data)
+            logger.error(traceback.print_exc())
+            return self.collect_data()
 
     def send_data(self, sock):
         if len(self.buffer) == 5:
