@@ -38,7 +38,7 @@ logger = logging.getLogger("ultra96")
 
 class Laptop:
     def __init__(self):
-        self.intcomm = IntComm(0, DANCER_ID)
+        self.intcomm = IntComm(DANCER_ID)
         self.buffer = []
 
     def collect_data(self):

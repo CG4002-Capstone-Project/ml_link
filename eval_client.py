@@ -83,7 +83,9 @@ class Client(threading.Thread):
         self.socket.sendall(encrypted_message)
 
     def receive_dancer_position(self):
+        print("receive_dancer_position")
         dancer_position = self.socket.recv(1024)
+        print(dancer_position)
         msg = dancer_position.decode("utf8")
         return msg
 
@@ -95,7 +97,7 @@ class Client(threading.Thread):
 
 def main():
     ip_addr = "localhost"
-    port_num = 8001
+    port_num = 8000
     group_id = "18"
     key = "1234123412341234"
 

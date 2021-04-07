@@ -1,3 +1,4 @@
+import random
 import time
 
 import numpy as np
@@ -161,9 +162,31 @@ class ML:
         ):  # 10 is a small buffer to account for network variation
             dance_move = self.pred_dance_move()
             pos = self.pred_position()
+            sync_delay = self.pred_sync_delay()
             self.reset()
-            return (dance_move, pos)
+            return dance_move, pos, sync_delay
         elif mx_samples >= POSITION_WINDOW + DANCE_SAMPLES:
             dance_move = self.pred_dance_move()
-
         return None
+
+    def get_start_index(self, dance_data):
+        n_dance_data = len(dance_data)
+        if n_dance_data < POSITION_WINDOW + DANCE_WINDOW:
+            return None
+        for idx in range(25, len(dance_data)):
+            pitch = dance_data[idx][1]
+            if abs(pitch) > 30:
+                return idx
+        return n_dance_data
+
+    def pred_sync_delay(self):
+        idxs = []
+        for i in range(3):
+            idx = self.get_start_index(self.data[i])
+            if idx is not None:
+                idxs.append(idx)
+        print(idxs)
+        sync_delay = max(idxs) - min(idxs)
+        if sync_delay == 0:
+            return random.random()
+        return sync_delay / 25 * 1000

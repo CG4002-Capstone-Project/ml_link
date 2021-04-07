@@ -10,7 +10,6 @@
 
 import logging
 import os
-import random
 import sys
 import time
 import traceback
@@ -97,9 +96,10 @@ class Server(LineReceiver):
         # return pred => (dance_move: str, dance_positions: list[int, int, int]) or None
         pred = self.persistent_data.ml.get_pred()
         if pred is not None:
-            dance_move, dance_positions = pred
-            self.persistent_data.endEvaluation(dance_move, dance_positions)
+            dance_move, pos, sync_delay = pred
+            self.persistent_data.endEvaluation(dance_move, pos, sync_delay)
             self.persistent_data.reset()
+            print("ultra96 resetting")
 
 
 # This class is used to store persistent data across connections
@@ -109,6 +109,11 @@ class ServerFactory(Factory):
     ):
         self.num_dancers = 0  # number of connected dancers
         self.my_client = Client(IP_ADDRESS, EVAL_PORT, group_id, secret_key)
+        print("1")
+        self.startEvaluation()
+        print("2")
+        self.resetEvaluation()
+        print("3")
 
         self.ml = ML(
             on_fpga=False,
@@ -121,8 +126,10 @@ class ServerFactory(Factory):
     def buildProtocol(self, addr):
         return Server(self)
 
-    def endEvaluation(self, dance_move, dance_positions):
-        sync_delay = self.handleSyncDelay()
+    def startEvaluation(self):
+        self.my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
+
+    def endEvaluation(self, dance_move, dance_positions, sync_delay):
         dance_positions = " ".join(
             [str(dance_position) for dance_position in dance_positions]
         )
@@ -130,20 +137,13 @@ class ServerFactory(Factory):
         self.my_client.send_message(eval_data)
         logger.info(f"sending to eval: {eval_data}")
 
-    def reset(self):
-        # timer for transition
-        self.is_transition = True
-        self.is_transition_timer = True
-
+    def resetEvaluation(self):
         dance_positions = self.my_client.receive_dancer_position()
         logger.info(f"received positions: {dance_positions}")
         dance_positions = [
             int(dance_position) for dance_position in dance_positions.split(" ")
         ]
         self.ml.set_pos(dance_positions)
-
-    def handleSyncDelay(self):
-        return random.random()
 
 
 if __name__ == "__main__":
