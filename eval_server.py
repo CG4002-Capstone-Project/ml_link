@@ -23,6 +23,8 @@ NUM_MOVE_PER_ACTION = 3
 N_TRANSITIONS = 1
 MESSAGE_SIZE = 3  # position, 1 action, sync
 
+EVAL_PORT = int(os.environ["EVAL_PORT"])
+
 
 class Server(threading.Thread):
     def __init__(
@@ -61,7 +63,7 @@ class Server(threading.Thread):
         self.action_set_time = None
 
         self.idx = 0
-        self.timeout = 30
+        self.timeout = 20
         self.has_no_response = False
         self.connection = None
         self.timer = None
@@ -228,7 +230,7 @@ def add_display_label(display_window, label):
 
 def main():
     ip_addr = "localhost"
-    port_num = 8000
+    port_num = EVAL_PORT
     group_id = 18
 
     my_server = Server(ip_addr, port_num, group_id)

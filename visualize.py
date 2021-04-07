@@ -4,18 +4,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-from inference import Inference, load_model
 
-
-def load_data(file_name, normalized=True):
+def load_data(file_name):
     df = pd.read_csv(file_name, sep=",")
-    if normalized:
-        df["ax"] = df["ax"] / 8192
-        df["ay"] = df["ay"] / 8192
-        df["az"] = df["az"] / 8192
-        df["gx"] = df["gx"] / 100
-        df["gy"] = df["gy"] / 100
-        df["gz"] = df["gz"] / 100
+    df["ax"] = df["ax"] / 8192
+    df["ay"] = df["ay"] / 8192
+    df["az"] = df["az"] / 8192
+    df["yaw"] = df["yaw"]
+    df["pitch"] = df["pitch"]
+    df["roll"] = df["roll"]
     df["timestamp"] = [i for i in range(len(df))]
     print(df.head())
     print(df.describe())
@@ -33,37 +30,13 @@ def visualize_data(df):
     ax[0].set(xlabel="readings", ylabel="acceleration")
     ax[0].legend()
 
-    sns.scatterplot(data=df, x="timestamp", y="gx", label="gx", ax=ax[1])
-    sns.scatterplot(data=df, x="timestamp", y="gy", label="gy", ax=ax[1])
-    sns.scatterplot(data=df, x="timestamp", y="gz", label="gz", ax=ax[1])
-    ax[1].set(xlabel="readings", ylabel="gyroscope")
+    sns.scatterplot(data=df, x="timestamp", y="yaw", label="yaw", ax=ax[1])
+    sns.scatterplot(data=df, x="timestamp", y="pitch", label="pitch", ax=ax[1])
+    sns.scatterplot(data=df, x="timestamp", y="roll", label="roll", ax=ax[1])
+    ax[1].set(xlabel="readings", ylabel="angles")
     ax[1].legend()
 
     plt.show()
-
-
-def inference_data(df, verbose):
-    model_path = "/home/nwjbrandon/models/dnn_model.pth"
-    scaler_path = "/home/nwjbrandon/models/dnn_std_scaler.bin"
-    model_type = "dnn"
-    model, scaler = load_model(model_type, model_path, scaler_path)
-
-    inference = Inference(model, model_type, scaler, verbose)
-
-    for timestamp in range(df.shape[0]):
-        data = df.iloc[timestamp]
-        gx, gy, gz, ax, ay, az = (
-            data.gx,
-            data.gy,
-            data.gz,
-            data.ax,
-            data.ay,
-            data.az,
-        )
-        inference.append_readings(gx, gy, gz, ax, ay, az)
-        result = inference.infer()
-        if result:
-            print(f"timestamp: {timestamp} result: {result}")
 
 
 def main():
@@ -80,12 +53,8 @@ def main():
     print("verbose:", verbose)
     print("visualize:", visualize)
 
-    if visualize:
-        df = load_data(visualize)
-        visualize_data(df)
-
-    df = load_data(visualize, normalized=False)
-    inference_data(df, verbose)
+    df = load_data(visualize)
+    visualize_data(df)
 
 
 if __name__ == "__main__":

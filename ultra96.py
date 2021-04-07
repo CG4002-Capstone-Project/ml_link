@@ -1,19 +1,13 @@
-# The server
-
-# NOTE
-# ====
-# If we are using SSH port forwarding to communicate between the
-# laptop and the server, there is no need to encrypt/decrypt with
-# AES as the data is already strongly encrypted.
-#
-# Reference: https://blog.eccouncil.org/what-is-ssh-port-forwarding/
-
 import logging
 import os
+import random
 import sys
+import threading
 import time
 import traceback
+from queue import SimpleQueue
 
+import pika
 from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
@@ -24,6 +18,7 @@ from ML import ML
 IP_ADDRESS = os.environ["IP_ADDRESS"]
 EVAL_PORT = int(os.environ["EVAL_PORT"])
 DANCE_PORT = int(os.environ["DANCE_PORT"])
+IS_DASHBOARD = bool(os.environ["IS_DASHBOARD"])
 
 WINDOW_SIZE = 50
 
@@ -82,7 +77,7 @@ class Server(LineReceiver):
                 float(accy),
                 float(accz),
             )
-
+            # TODO: handle start and left and right
             self.persistent_data.ml.write_data(
                 dancer_id, [yaw, pitch, roll, accx, accy, accz]
             )
@@ -93,27 +88,16 @@ class Server(LineReceiver):
             logger.error(traceback.format_exc())
 
     def handleMainLogic(self, dancer_id):
-        # return pred => (dance_move: str, dance_positions: list[int, int, int]) or None
         pred = self.persistent_data.ml.get_pred()
         if pred is not None:
             dance_move, pos, sync_delay = pred
-            self.persistent_data.endEvaluation(dance_move, pos, sync_delay)
-            self.persistent_data.reset()
-            print("ultra96 resetting")
+            mqueue.put((dance_move, pos, sync_delay))
 
 
 # This class is used to store persistent data across connections
 class ServerFactory(Factory):
-    def __init__(
-        self, group_id="18", secret_key="1234123412341234",
-    ):
+    def __init__(self,):
         self.num_dancers = 0  # number of connected dancers
-        self.my_client = Client(IP_ADDRESS, EVAL_PORT, group_id, secret_key)
-        print("1")
-        self.startEvaluation()
-        print("2")
-        self.resetEvaluation()
-        print("3")
 
         self.ml = ML(
             on_fpga=False,
@@ -126,30 +110,78 @@ class ServerFactory(Factory):
     def buildProtocol(self, addr):
         return Server(self)
 
-    def startEvaluation(self):
-        self.my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
 
-    def endEvaluation(self, dance_move, dance_positions, sync_delay):
-        dance_positions = " ".join(
-            [str(dance_position) for dance_position in dance_positions]
-        )
-        eval_data = f"{dance_positions}|{dance_move}|{sync_delay}|"
-        self.my_client.send_message(eval_data)
-        logger.info(f"sending to eval: {eval_data}")
+def swap_positions(positions, pos):
+    if pos == ["S", "S", "S"]:
+        return [positions[0], positions[1], positions[2]]
+    elif pos == ["R", "L", "S"]:
+        return [positions[1], positions[0], positions[2]]
+    elif pos == ["R", "S", "L"]:
+        return [positions[2], positions[1], positions[1]]
+    elif pos == ["S", "R", "L"]:
+        return [positions[0], positions[2], positions[1]]
+    elif pos == ["R", "R", "L"]:
+        return [positions[2], positions[0], positions[1]]
+    elif pos == ["R", "L", "L"]:
+        return [positions[1], positions[2], positions[0]]
+    else:
+        return [positions[0], positions[1], positions[2]]
 
-    def resetEvaluation(self):
-        dance_positions = self.my_client.receive_dancer_position()
-        logger.info(f"received positions: {dance_positions}")
-        dance_positions = [
-            int(dance_position) for dance_position in dance_positions.split(" ")
-        ]
-        self.ml.set_pos(dance_positions)
+
+def format_results(positions, dance_move, pos, sync_delay):
+    new_positions = swap_positions(positions, pos)
+    accuracy = random.randrange(60, 100) / 100  # TODO: fixed if got time
+    eval_results = f"{new_positions[0]} {new_positions[1]} {new_positions[2]}|{dance_move}|{sync_delay}|"
+    dashboard_results = f"{positions[0]} {positions[1]} {positions[2]}|{dance_move}|{new_positions[0]} {new_positions[1]} {new_positions[2]}|{sync_delay}|{accuracy}"
+
+    return eval_results, dashboard_results
 
 
 if __name__ == "__main__":
     logger.info("Started server on port %d" % DANCE_PORT)
+
+    # setup dashboard queue
+    if IS_DASHBOARD:
+        CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
+        params = pika.URLParameters(CLOUDAMQP_URL)
+        params.socket_timeout = 5
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+        channel.queue_declare(queue="results")
+
+    mqueue = SimpleQueue()
+    positions = [1, 2, 3]
     try:
         reactor.listenTCP(DANCE_PORT, ServerFactory())
-        reactor.run()
+        thread = threading.Thread(target=reactor.run, args=(False,))
+        thread.start()
+
+        input("Press any input to start evaluation server")
+
+        group_id = "18"
+        secret_key = "1234123412341234"
+        my_client = Client(IP_ADDRESS, EVAL_PORT, group_id, secret_key)
+        my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
+        logger.info(f"received positions: {positions}")
+        while True:
+            while not mqueue.empty():
+                dance_move, pos, sync_delay = mqueue.get()
+                logger.info(f"predictions: {(dance_move, pos, sync_delay)}")
+                eval_results, dashboard_results = format_results(
+                    positions, dance_move, pos, sync_delay
+                )
+                logger.info(f"eval_results: {eval_results}")
+                logger.info(f"dashboard_results: {dashboard_results}")
+
+                my_client.send_message(eval_results)
+                positions = my_client.receive_dancer_position()
+                if IS_DASHBOARD:
+                    channel.basic_publish(
+                        exchange="", routing_key="results", body=dashboard_results,
+                    )
+                positions = [int(position) for position in positions.split(" ")]
+                logger.info(f"received positions: {positions}")
+
     except KeyboardInterrupt:
+        thread.join()
         logger.info("Terminating")
