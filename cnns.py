@@ -50,7 +50,7 @@ class PCNN(nn.Module):
         self.flat1 = nn.Flatten()
         self.dp2 = nn.Dropout(0.5)
 
-        self.fc1 = nn.Linear(168, 64)
+        self.fc1 = nn.Linear(232, 64)
         self.relu3 = nn.ReLU()
         self.dp3 = nn.Dropout(0.5)
 
@@ -73,3 +73,4 @@ class PCNN(nn.Module):
         x = self.fc2(x)
 
         return x
+

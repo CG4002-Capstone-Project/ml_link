@@ -3,7 +3,7 @@ import time
 
 import serial
 
-SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
+SERIAL_PORTS = ["/dev/cu.usbmodem142101", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 
 class IntComm:

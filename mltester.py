@@ -22,19 +22,25 @@ if __name__ == "__main__":
     intcomm = IntComm(0)
 
     while True:
-        line = intcomm.get_line()
 
-        yaw, pitch, roll, accx, accy, accz, emg = line[1:].split(",")
-        yaw, pitch, roll, accx, accy, accz = (
-            float(yaw),
-            float(pitch),
-            float(roll),
-            float(accx),
-            float(accy),
-            float(accz),
-        )
+        try:
+            line = intcomm.get_line()
+            while line[0] != '#':
+                line = intcomm.get_line()
 
-        ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
+            yaw, pitch, roll, accx, accy, accz, emg = line[1:].split(",")
+            yaw, pitch, roll, accx, accy, accz = (
+                float(yaw),
+                float(pitch),
+                float(roll),
+                float(accx),
+                float(accy),
+                float(accz),
+            )
+
+            ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
+        except:
+            pass
 
         pred = ml.get_pred()
 

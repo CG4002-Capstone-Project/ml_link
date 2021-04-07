@@ -98,7 +98,15 @@ if __name__ == "__main__":
 
         data_c = 0
         while data_c < NUM_S_PER_MOVE:
-            point = str(i) + "," + intcomm.get_line()[1:]
+            try:
+                line = intcomm.get_line()
+            except:
+                line = ""
+
+            if len(line) == 0 or line[0] != '#' or '#' in line[1:]:
+                print("Invaid", line)
+                continue
+            point = str(i) + "," + line[1:]
             if pos == "y":
                 point = point + "," + positions[i % (len(positions))]
             else:
