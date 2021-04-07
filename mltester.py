@@ -41,8 +41,6 @@ if __name__ == "__main__":
             )
 
             ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
-
             pred = ml.get_pred()
-
             if pred is not None:
                 print("Prediction", pred)

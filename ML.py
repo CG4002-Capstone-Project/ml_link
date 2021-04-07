@@ -1,5 +1,6 @@
 import random
 import time
+import os
 
 import numpy as np
 from joblib import load
@@ -13,7 +14,7 @@ except:
 
 
 # No. of samples to determine position
-POSITION_WINDOW = 90
+POSITION_WINDOW = 120
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
@@ -110,6 +111,8 @@ class ML:
                 inp = torch.tensor(dance_samples)
                 out = self.dance_model(inp.float())
                 self.preds = self.preds + out.detach().numpy()
+                if 'DEBUG' in os.environ:
+                    print("Intermediate prediction", self.pred_dance_move())
             else:
                 pass  # TODO FPGA PREDICTION HERE
 
