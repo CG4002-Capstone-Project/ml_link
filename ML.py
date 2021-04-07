@@ -117,42 +117,37 @@ class ML:
         return activities[np.argmax(self.preds)]
 
     def pred_position(self):
-        idle_point = [0] * 6  # Sentinel value for missing data
+        pos = ["S", "S", "S"]  # S - still, L - left, R - right
 
-        samples = []  # need to insert POSITION_WINDOW x 18 data
-        for i in range(POSITION_WINDOW):
-            samples.append([])
+        for i in range(3):
+            sample = np.array(self.data[i])
+            if sample.shape[0] < POSITION_WINDOW:
+                continue
+            rolls = sample[:POSITION_WINDOW, 2]
 
-        # add data in if available
-        for x in self.pos:
-            i = x - 1
-            for j in range(POSITION_WINDOW):
-                if len(self.data[i]) >= POSITION_WINDOW:
-                    samples[j] += self.data[i][j]
-                else:
-                    samples[j] += idle_point
+            # indices of roll less than -25 (right) and greater than 25 (left)
+            right_rolls_idxs, left_rolls_idxs = (
+                np.where(rolls < -25)[0],
+                np.where(rolls > 25)[0],
+            )
+            right_rolls_count, left_rolls_count = (
+                right_rolls_idxs.shape[0],
+                left_rolls_idxs.shape[0],
+            )
 
-        result = 0
-        samples = self.scale_pos_data(samples)
+            # register a turn if more than 5 points are above threshold
+            if left_rolls_count > 5 or right_rolls_count > 5:
+                if left_rolls_count == 0:
+                    pos[i] = "R"
+                    continue
+                if right_rolls_count == 0:
+                    pos[i] = "L"
+                    continue
 
-        if not self.on_fpga:
-            inp = torch.tensor(samples)
-            out = self.pos_model(inp.float())
-            result = np.argmax(out.detach().numpy())
-        else:
-            pass  # TODO
+                left_max, right_max = np.max(left_rolls_idxs), np.max(right_rolls_idxs)
+                pos[i] = "L" if left_max < right_max else "R"
 
-        # Get permutation and map back
-        perms = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]
-        result = perms[result]
-
-        # permute back
-        # TODO VERIFY LOGIC
-        result[0] = self.pos[result[0] - 1]
-        result[1] = self.pos[result[1] - 1]
-        result[2] = self.pos[result[2] - 1]
-
-        return result
+        return pos
 
     def get_pred(self):
         mx_samples = max([len(x) for x in self.data])
@@ -170,23 +165,16 @@ class ML:
         return None
 
     def get_start_index(self, dance_data):
-        n_dance_data = len(dance_data)
-        if n_dance_data < POSITION_WINDOW + DANCE_WINDOW:
+        n_samples = len(dance_data)
+        if n_samples < POSITION_WINDOW + DANCE_WINDOW:
             return None
-        for idx in range(25, len(dance_data)):
-            pitch = dance_data[idx][1]
-            if abs(pitch) > 30:
-                return idx
-        return n_dance_data
+        pitchs = np.array(dance_data)[:, 1]
+        pitchs = np.abs(pitchs[25:POSITION_WINDOW])
+        idxs = np.where(pitchs > 30)[0]
+        return np.min(idxs) if idxs.shape[0] != 0 else pitchs.shape[0]
 
     def pred_sync_delay(self):
-        idxs = []
-        for i in range(3):
-            idx = self.get_start_index(self.data[i])
-            if idx is not None:
-                idxs.append(idx)
-        print(idxs)
-        sync_delay = max(idxs) - min(idxs)
-        if sync_delay == 0:
-            return random.random()
-        return sync_delay / 25 * 1000
+        idxs = [self.get_start_index(self.data[i]) for i in range(3)]
+        idxs = [idx for idx in idxs if idx is not None]
+        sync_delay = np.max(idxs) - np.min(idxs)
+        return random.random() if sync_delay == 0 else sync_delay / 25 * 1000

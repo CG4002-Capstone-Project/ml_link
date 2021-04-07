@@ -77,6 +77,16 @@ class Server(LineReceiver):
                 float(accy),
                 float(accz),
             )
+
+            if self.persistent_data.is_idle:
+                self.persistent_data.counter += 1
+                if self.persistent_data.counter % 100 == 0:
+                    print("idling")
+                if abs(yaw) > 40 or abs(pitch) > 40 or abs(roll) > 40:
+                    self.persistent_data.is_idle = False
+                    print("starting")
+                return
+
             # TODO: handle start and left and right
             self.persistent_data.ml.write_data(
                 dancer_id, [yaw, pitch, roll, accx, accy, accz]
@@ -98,6 +108,8 @@ class Server(LineReceiver):
 class ServerFactory(Factory):
     def __init__(self,):
         self.num_dancers = 0  # number of connected dancers
+        self.is_idle = True
+        self.counter = 0
 
         self.ml = ML(
             on_fpga=False,
