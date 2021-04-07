@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
         moves = [MOVES[smove]]
 
-    timeout = 3
+    timeout = 2
     while timeout > 0:
         clr()
         print("Starting in %ds, please stand in calibration position" % timeout)
@@ -90,8 +90,6 @@ if __name__ == "__main__":
 
         if i == 0:
             msg = "Don't move"
-        elif i <= 2:
-            msg = "Get ready"
         else:
             msg = move
         print("%d: %s" % (i, msg))
@@ -104,7 +102,7 @@ if __name__ == "__main__":
                 line = ""
 
             if len(line) == 0 or line[0] != '#' or '#' in line[1:]:
-                print("Invaid", line)
+                print("Invalid", line)
                 continue
             point = str(i) + "," + line[1:]
             if pos == "y":
@@ -113,7 +111,7 @@ if __name__ == "__main__":
                 point = point + "," + move
             data_c = data_c + 1
 
-            if i > 2:
+            if i > 0:
                 data.append(point)
 
     data = "\n".join(data) + "\n"
