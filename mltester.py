@@ -2,8 +2,8 @@ from intcomm import IntComm
 from ML import ML
 
 if __name__ == "__main__":
-    dance_model_path = "dance_model.pth"
-    dance_scaler_path = "dance_scaler.bin"
+    dance_model_path = "dnn_model.pth"
+    dance_scaler_path = "dnn_std_scaler.bin"
     pos_model_path = "pos_model.pth"
     pos_scaler_path = "pos_scaler.bin"
 

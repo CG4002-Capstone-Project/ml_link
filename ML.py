@@ -7,7 +7,7 @@ from joblib import load
 try:
     import torch
 
-    from cnns import MCNN, PCNN
+    from cnns import DNN, MCNN, PCNN, extract_raw_data_features
 except:
     print("Torch import failed")
 
@@ -28,16 +28,15 @@ if POSITION_WINDOW < 150:
     print("WARNING: Position window has been set to low value for testing")
 
 activities = [
-    "dab",
-    "elbowkick",
-    "listen",
-    "pointhigh",
     "hair",
-    "gun",
+    "listen",
     "sidepump",
+    "dab",
     "wipetable",
+    "gun",
+    "elbowkick",
+    "pointhigh",
     "logout",
-    "idle",
 ]
 
 
@@ -63,7 +62,7 @@ class ML:
 
     def load_models(self, dance_model_path, pos_model_path):
         if not self.on_fpga:
-            dance_model = MCNN()
+            dance_model = DNN()
             dance_model.load_state_dict(
                 torch.load(dance_model_path, map_location="cpu")
             )
@@ -77,21 +76,39 @@ class ML:
 
     def reset(self):
         self.data = [[], [], []]  # data for 3 dancers
-        self.preds = np.zeros(10)
+        self.preds = np.zeros(9)
 
     def set_pos(self, p):
         self.pos = p
 
     def write_data(self, dancer_id, data):
         self.data[dancer_id].append(data)
-        # self.update_dance_pred(self.data[dancer_id])
+        self.update_dance_pred(self.data[dancer_id])
 
     def scale_dance_data(self, samples):
-        inp = np.array([np.array(samples).transpose()])
-        num_instances, num_time_steps, num_features = inp.shape
-        inp = np.reshape(inp, newshape=(-1, num_features))
+        samples = np.array(samples)
+        inp = np.array(
+            [
+                [
+                    samples[:, 0],
+                    samples[:, 1],
+                    samples[:, 2],
+                    samples[:, 3],
+                    samples[:, 4],
+                    samples[:, 5],
+                    samples[:, 6],
+                    samples[:, 7],
+                    samples[:, 8],
+                ]
+            ]
+        )
+        inp = extract_raw_data_features(inp)
         inp = self.dance_scaler.transform(inp)
-        inp = np.reshape(inp, newshape=(num_instances, num_time_steps, num_features))
+        # inp = np.array([np.array(samples).transpose()])
+        # num_instances, num_time_steps, num_features = inp.shape
+        # inp = np.reshape(inp, newshape=(-1, num_features))
+        # inp = self.dance_scaler.transform(inp)
+        # inp = np.reshape(inp, newshape=(num_instances, num_time_steps, num_features))
         return inp
 
     def scale_pos_data(self, samples):
@@ -128,7 +145,6 @@ class ML:
                 continue
 
             gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
-            print(gxs)
 
             # indices of roll less than -25 (right) and greater than 25 (left)
             right_gxs_idxs, left_gxs_idxs = (
@@ -161,8 +177,8 @@ class ML:
         if (
             mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW
         ):  # 10 is a small buffer to account for network variation
-            # dance_move = self.pred_dance_move()
-            dance_move = None
+            dance_move = self.pred_dance_move()
+            # dance_move = None
             pos = self.pred_position()
             sync_delay = self.pred_sync_delay()
             self.reset()
