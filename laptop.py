@@ -1,13 +1,3 @@
-# Main and only program to run on each laptop
-
-# NOTE
-# ====
-# If we are using SSH port forwarding to communicate between the
-# laptop and the server, there is no need to encrypt/decrypt with
-# AES as the data is already strongly encrypted.
-#
-# Reference: https://blog.eccouncil.org/what-is-ssh-port-forwarding/
-
 import logging
 import os
 import socket
@@ -15,11 +5,17 @@ import sys
 import time
 import traceback
 
+import pika
+
 from intcomm import IntComm
 
 PORT = int(os.environ["DANCE_PORT"])
 DANCER_ID = int(os.environ["DANCER_ID"])
+IS_DASHBOARD = bool(os.environ["IS_DASHBOARD"])
+IS_EMG = bool(os.environ["IS_EMG"])
+
 HOST = "localhost"
+DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
 
 
 # setup logging
@@ -38,20 +34,38 @@ logger = logging.getLogger("ultra96")
 
 class Laptop:
     def __init__(self):
-        self.intcomm = IntComm(0, DANCER_ID)
+        self.intcomm = IntComm(DANCER_ID)
         self.buffer = []
 
     def collect_data(self):
-        # #yaw,pitch,roll,accx,accy,accz,emg
+        # data: #yaw,pitch,roll,accx,accy,accz,emg
         data = self.intcomm.get_line()
         try:
             if len(data) == 0 or data[0] != "#":
                 logger.error("Invalid data:", data)
                 raise "Invalid data"
 
-            data = f"#{DANCER_ID},{data[1:]}\n"
-            logger.info(data)
-            self.buffer.append(data)
+            formatted_data = f"#{DANCER_ID},{data[1:]}\n"
+            logger.info(formatted_data)
+            self.buffer.append(formatted_data)
+            if IS_DASHBOARD:
+                yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data[
+                    1:
+                ].split(",")
+                imu_msg = ",".join(
+                    [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
+                )
+                imu_msg = f"{str(DANCER_ID)}|{str(time.time())}|{imu_msg}|"
+                logger.info(f"imu_msg: {imu_msg}")
+                channel.basic_publish(
+                    exchange="", routing_key=DB_QUEUES[DANCER_ID], body=imu_msg,
+                )
+
+                if IS_EMG:
+                    emg_msg = f"{str(time.time())}|{emg}"
+                    logger.info(f"emg_msg: {emg_msg}")
+                    channel.basic_publish(exchange="", routing_key="emg", body=emg_msg)
+
         except:
             logger.error(data)
             logger.error(traceback.print_exc())
@@ -76,5 +90,16 @@ class Laptop:
 
 
 if __name__ == "__main__":
+    if IS_DASHBOARD:
+        CLOUDAMQP_URL = "amqps://yjxagmuu:9i_-oo9VNSh5w4DtBxOlB6KLLOMLWlgj@mustang.rmq.cloudamqp.com/yjxagmuu"
+        params = pika.URLParameters(CLOUDAMQP_URL)
+        params.socket_timeout = 5
+
+        connection = pika.BlockingConnection(params)
+        channel = connection.channel()
+        channel.queue_declare(queue=DB_QUEUES[DANCER_ID])
+        if IS_EMG:
+            channel.queue_declare(queue="emg")
+
     laptop = Laptop()
     laptop.run()

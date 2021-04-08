@@ -101,7 +101,7 @@ if __name__ == "__main__":
             except:
                 line = ""
 
-            if len(line) == 0 or line[0] != '#' or '#' in line[1:]:
+            if len(line) == 0 or line[0] != "#" or "#" in line[1:]:
                 print("Invalid", line)
                 continue
             point = str(i) + "," + line[1:]

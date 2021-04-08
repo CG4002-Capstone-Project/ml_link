@@ -22,27 +22,27 @@ if __name__ == "__main__":
     intcomm = IntComm(0)
 
     while True:
+        data = intcomm.get_line()
+        if len(data) == 0 or data[0] != "#":
+            print("Invalid data:", data)
+            continue
 
-        try:
-            line = intcomm.get_line()
-            while line[0] != '#':
-                line = intcomm.get_line()
+        data = data[1:].split(",")
+        if len(data) == 10:
+            yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data
 
-            yaw, pitch, roll, accx, accy, accz, emg = line[1:].split(",")
-            yaw, pitch, roll, accx, accy, accz = (
+            yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz = (
                 float(yaw),
                 float(pitch),
                 float(roll),
+                float(gyrox),
+                float(gyroy),
+                float(gyroz),
                 float(accx),
                 float(accy),
                 float(accz),
             )
-
-            ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
-        except:
-            pass
-
-        pred = ml.get_pred()
-
-        if pred is not None:
-            print("Prediction", pred)
+            ml.write_data(0, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz])
+            pred = ml.get_pred()
+            if pred is not None:
+                print("Prediction", pred)

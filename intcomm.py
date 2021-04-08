@@ -3,12 +3,11 @@ import time
 
 import serial
 
-SERIAL_PORTS = ["/dev/cu.usbmodem142101", "/dev/ttyACM1", "/dev/ttyACM2"]
+SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 
 class IntComm:
-    def __init__(self, serial_port, dancer=1):
-        self.dancer = dancer
+    def __init__(self, serial_port):
         self.ser = serial.Serial(SERIAL_PORTS[serial_port], 115200, timeout=0.5)
         self.ser.flushInput()
         print("Opened serial port %s" % SERIAL_PORTS[serial_port])

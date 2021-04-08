@@ -1,5 +1,5 @@
-import time
 import os
+import random
 
 import numpy as np
 from joblib import load
@@ -12,8 +12,10 @@ except:
     print("Torch import failed")
 
 
+TRANSITION_WINDOW = 40
+
 # No. of samples to determine position
-POSITION_WINDOW = 120
+POSITION_WINDOW = 50
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
@@ -24,7 +26,6 @@ DANCE_WINDOW = 180
 
 if POSITION_WINDOW < 150:
     print("WARNING: Position window has been set to low value for testing")
-    time.sleep(1)
 
 activities = [
     "dab",
@@ -83,7 +84,7 @@ class ML:
 
     def write_data(self, dancer_id, data):
         self.data[dancer_id].append(data)
-        self.update_dance_pred(self.data[dancer_id])
+        # self.update_dance_pred(self.data[dancer_id])
 
     def scale_dance_data(self, samples):
         inp = np.array([np.array(samples).transpose()])
@@ -110,7 +111,7 @@ class ML:
                 inp = torch.tensor(dance_samples)
                 out = self.dance_model(inp.float())
                 self.preds = self.preds + out.detach().numpy()
-                if 'DEBUG' in os.environ:
+                if "DEBUG" in os.environ:
                     print("Intermediate prediction", self.pred_dance_move())
             else:
                 pass  # TODO FPGA PREDICTION HERE
@@ -119,54 +120,66 @@ class ML:
         return activities[np.argmax(self.preds)]
 
     def pred_position(self):
-        idle_point = [0] * 6  # Sentinel value for missing data
+        pos = ["S", "S", "S"]  # S - still, L - left, R - right
 
-        samples = []  # need to insert POSITION_WINDOW x 18 data
-        for i in range(POSITION_WINDOW):
-            samples.append([])
+        for i in range(3):
+            sample = np.array(self.data[i])
+            if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
+                continue
 
-        # add data in if available
-        for x in self.pos:
-            i = x - 1
-            for j in range(POSITION_WINDOW):
-                if len(self.data[i]) >= POSITION_WINDOW:
-                    samples[j] += self.data[i][j]
-                else:
-                    samples[j] += idle_point
+            gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
+            print(gxs)
 
-        result = 0
-        samples = self.scale_pos_data(samples)
+            # indices of roll less than -25 (right) and greater than 25 (left)
+            right_gxs_idxs, left_gxs_idxs = (
+                np.where((gxs < -50))[0],
+                np.where((gxs > 50))[0],
+            )
 
-        if not self.on_fpga:
-            inp = torch.tensor(samples)
-            out = self.pos_model(inp.float())
-            result = np.argmax(out.detach().numpy())
-        else:
-            pass  # TODO
+            right_gxs_count, left_gxs_count = (
+                right_gxs_idxs.shape[0],
+                left_gxs_idxs.shape[0],
+            )
 
-        # Get permutation and map back
-        perms = [[1, 2, 3], [1, 3, 2], [2, 1, 3], [2, 3, 1], [3, 1, 2], [3, 2, 1]]
-        result = perms[result]
+            # register a turn if more than 3 points are above threshold
+            if left_gxs_count >= 3 or right_gxs_count >= 3:
+                if left_gxs_count == 0:
+                    pos[i] = "R"
+                    continue
+                if right_gxs_count == 0:
+                    pos[i] = "L"
+                    continue
 
-        # permute back
-        # TODO VERIFY LOGIC
-        result[0] = self.pos[result[0] - 1]
-        result[1] = self.pos[result[1] - 1]
-        result[2] = self.pos[result[2] - 1]
+                left_max, right_max = np.max(left_gxs_idxs), np.max(right_gxs_idxs)
+                pos[i] = "L" if left_max < right_max else "R"
 
-        return result
+        return pos
 
     def get_pred(self):
         mx_samples = max([len(x) for x in self.data])
 
         if (
-            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + 10
+            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW
         ):  # 10 is a small buffer to account for network variation
-            dance_move = self.pred_dance_move()
+            # dance_move = self.pred_dance_move()
+            dance_move = None
             pos = self.pred_position()
+            sync_delay = self.pred_sync_delay()
             self.reset()
-            return (dance_move, pos)
-        elif mx_samples >= POSITION_WINDOW + DANCE_SAMPLES:
-            dance_move = self.pred_dance_move()
-
+            return dance_move, pos, sync_delay
         return None
+
+    def get_start_index(self, dance_data):
+        n_samples = len(dance_data)
+        if n_samples < TRANSITION_WINDOW + POSITION_WINDOW + DANCE_WINDOW:
+            return None
+        pitchs = np.array(dance_data)[:, 1]
+        pitchs = np.abs(pitchs[TRANSITION_WINDOW + POSITION_WINDOW :])
+        idxs = np.where(pitchs > 30)[0]
+        return np.min(idxs) if idxs.shape[0] != 0 else pitchs.shape[0]
+
+    def pred_sync_delay(self):
+        idxs = [self.get_start_index(self.data[i]) for i in range(3)]
+        idxs = [idx for idx in idxs if idx is not None]
+        sync_delay = np.max(idxs) - np.min(idxs)
+        return random.random() if sync_delay == 0 else sync_delay / 25 * 1000

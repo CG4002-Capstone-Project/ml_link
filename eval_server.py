@@ -19,9 +19,11 @@ from Crypto.Cipher import AES
 ACTIONS = ["gun", "sidepump", "hair"]
 POSITIONS = ["1 2 3", "3 2 1", "2 3 1", "3 1 2", "1 3 2", "2 1 3"]
 LOG_DIR = os.path.join(os.path.dirname(__file__), "evaluation_logs")
-NUM_MOVE_PER_ACTION = 1
+NUM_MOVE_PER_ACTION = 3
 N_TRANSITIONS = 1
 MESSAGE_SIZE = 3  # position, 1 action, sync
+
+EVAL_PORT = int(os.environ["EVAL_PORT"])
 
 
 class Server(threading.Thread):
@@ -61,7 +63,7 @@ class Server(threading.Thread):
         self.action_set_time = None
 
         self.idx = 0
-        self.timeout = 15
+        self.timeout = 20
         self.has_no_response = False
         self.connection = None
         self.timer = None
@@ -228,7 +230,7 @@ def add_display_label(display_window, label):
 
 def main():
     ip_addr = "localhost"
-    port_num = 8000
+    port_num = EVAL_PORT
     group_id = 18
 
     my_server = Server(ip_addr, port_num, group_id)
