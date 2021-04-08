@@ -112,6 +112,7 @@ void loop() {
   mpu.dmpGetYawPitchRoll(ypr, &q, &gravity);
   mpu.dmpGetAccel(&aa, fifoBuffer);
   mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
+  mpu.dmpGetGyro(&gyro, fifoBuffer);
 
   Serial.print("#");
 
@@ -120,6 +121,13 @@ void loop() {
   Serial.print(ypr[1] * 180 / M_PI);
   Serial.print(",");
   Serial.print(ypr[2] * 180 / M_PI);
+  Serial.print(",");
+
+  Serial.print(gyro.x);
+  Serial.print(",");
+  Serial.print(gyro.y);
+  Serial.print(",");
+  Serial.print(gyro.z);
   Serial.print(",");
 
   Serial.print(aaReal.x);

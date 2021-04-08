@@ -20,9 +20,11 @@ if __name__ == "__main__":
                 continue
 
             data = data[1:].split(",")
-            if len(data) == 7:
-                yaw, pitch, roll, accx, accy, accz, emg = data
-                all_data.append([yaw, pitch, roll, accx, accy, accz])
+            if len(data) == 10:
+                yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data
+                all_data.append(
+                    [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
+                )
 
     except KeyboardInterrupt:
         print("terminating program")
@@ -31,5 +33,5 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(all_data)
     print(df.head())
-    df.columns = ["yaw", "pitch", "roll", "ax", "ay", "az"]
+    df.columns = ["yaw", "pitch", "roll", "gx", "gy", "gz", "ax", "ay", "az"]
     df.to_csv("test.csv", sep=",")

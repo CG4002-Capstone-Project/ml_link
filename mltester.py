@@ -28,19 +28,21 @@ if __name__ == "__main__":
             continue
 
         data = data[1:].split(",")
-        if len(data) == 7:
-            yaw, pitch, roll, accx, accy, accz, emg = data
+        if len(data) == 10:
+            yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data
 
-            yaw, pitch, roll, accx, accy, accz = (
+            yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz = (
                 float(yaw),
                 float(pitch),
                 float(roll),
+                float(gyrox),
+                float(gyroy),
+                float(gyroz),
                 float(accx),
                 float(accy),
                 float(accz),
             )
-
-            ml.write_data(0, [yaw, pitch, roll, accx, accy, accz])
+            ml.write_data(0, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz])
             pred = ml.get_pred()
             if pred is not None:
                 print("Prediction", pred)

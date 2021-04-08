@@ -65,14 +65,29 @@ class Server(LineReceiver):
             if line[0] != "#":
                 logger.error("Received invalid data", line)
                 return
-            dancer_id, yaw, pitch, roll, accx, accy, accz, emg = line[1:].split(",")
+            (
+                dancer_id,
+                yaw,
+                pitch,
+                roll,
+                gyrox,
+                gyroy,
+                gyroz,
+                accx,
+                accy,
+                accz,
+                emg,
+            ) = line[1:].split(",")
 
             # appends data for each dancer to window
             dancer_id = int(dancer_id)
-            yaw, pitch, roll, accx, accy, accz = (
+            yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz = (
                 float(yaw),
                 float(pitch),
                 float(roll),
+                float(gyrox),
+                float(gyroy),
+                float(gyroz),
                 float(accx),
                 float(accy),
                 float(accz),

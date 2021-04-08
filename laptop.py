@@ -49,8 +49,12 @@ class Laptop:
             logger.info(formatted_data)
             self.buffer.append(formatted_data)
             if IS_DASHBOARD:
-                yaw, pitch, roll, accx, accy, accz, emg = data[1:].split(",")
-                imu_msg = ",".join([yaw, pitch, roll, accx, accy, accz])
+                yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data[
+                    1:
+                ].split(",")
+                imu_msg = ",".join(
+                    [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
+                )
                 imu_msg = f"{str(DANCER_ID)}|{str(time.time())}|{imu_msg}|"
                 logger.info(f"imu_msg: {imu_msg}")
                 channel.basic_publish(
