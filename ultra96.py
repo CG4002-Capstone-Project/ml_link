@@ -125,13 +125,12 @@ class ServerFactory(Factory):
         self.num_dancers = 0  # number of connected dancers
         self.is_idle = True
         self.counter = 0
-
+        dance_model_path = "model_weights.json"
+        dance_scaler_path = "dnn_std_scaler.bin"
         self.ml = ML(
             on_fpga=False,
-            dance_scaler_path="./dance_scaler.bin",
-            pos_scaler_path="./pos_scaler.bin",
-            dance_model_path="./dance_model.pth",
-            pos_model_path="./pos_model.pth",
+            dance_scaler_path=dance_scaler_path,
+            dance_model_path=dance_model_path,
         )
 
     def buildProtocol(self, addr):

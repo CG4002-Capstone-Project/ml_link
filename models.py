@@ -1,6 +1,10 @@
+import json
+import warnings
+
 import numpy as np
-import torch.nn as nn
 from scipy import signal, stats
+
+warnings.filterwarnings("ignore")
 
 
 def compute_mean(data):
@@ -126,101 +130,40 @@ def extract_raw_data_features(X):
     return new_features
 
 
-class DNN(nn.Module):
+class FCLayer:
+    def __init__(self, in_features, out_features, name="fclayer"):
+        self.weights = np.zeros((out_features, in_features))
+        self.bias = np.zeros(out_features)
+
+    def forward(self, inputs):
+        return inputs.dot(self.weights.T) + self.bias
+
+    def __call__(self, inputs):
+        return self.forward(inputs)
+
+    def setup(self, weights, bias):
+        self.weights = np.array(weights)
+        self.bias = np.array(bias)
+
+
+class DNN:
     def __init__(self):
-        super().__init__()
-        self.fc1 = nn.Linear(126, 64)
-        self.dp1 = nn.Dropout(0.1)
-
-        self.fc2 = nn.Linear(64, 16)
-        self.dp2 = nn.Dropout(0.1)
-
-        self.fc3 = nn.Linear(16, 9)
+        self.fc1 = FCLayer(126, 64)
+        self.fc2 = FCLayer(64, 16)
+        self.fc3 = FCLayer(16, 9)
 
     def forward(self, x):
         x = self.fc1(x)
-        x = self.dp1(x)
-
         x = self.fc2(x)
-        x = self.dp2(x)
-
         x = self.fc3(x)
         return x
 
+    def __call__(self, inputs):
+        return self.forward(inputs)
 
-class MCNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv1d(9, 32, 3)
-        self.relu1 = nn.ReLU()
-        self.dp1 = nn.Dropout(0.6)
-
-        self.pool1 = nn.MaxPool1d(2)
-        self.flat1 = nn.Flatten()
-        self.dp2 = nn.Dropout(0.2)
-
-        self.fc1 = nn.Linear(928, 256)
-        self.relu2 = nn.ReLU()
-        self.dp3 = nn.Dropout(0.2)
-
-        self.fc2 = nn.Linear(256, 128)
-        self.dp4 = nn.Dropout(0.2)
-
-        self.fc3 = nn.Linear(128, 9)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu1(x)
-        x = self.dp1(x)
-
-        x = self.pool1(x)
-        x = self.flat1(x)
-        x = self.dp2(x)
-
-        x = self.fc1(x)
-        x = self.relu2(x)
-        x = self.dp3(x)
-
-        x = self.fc2(x)
-        x = self.dp4(x)
-
-        x = self.fc3(x)
-
-        return x
-
-
-class PCNN(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv1d(18, 8, 5)
-        self.relu1 = nn.ReLU()
-        self.dp1 = nn.Dropout(0.5)
-
-        self.pool1 = nn.MaxPool1d(2)
-        self.pool2 = nn.MaxPool1d(2)
-        self.flat1 = nn.Flatten()
-        self.dp2 = nn.Dropout(0.5)
-
-        self.fc1 = nn.Linear(232, 64)
-        self.relu3 = nn.ReLU()
-        self.dp3 = nn.Dropout(0.5)
-
-        self.fc2 = nn.Linear(64, 6)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.relu1(x)
-        x = self.dp1(x)
-
-        x = self.pool1(x)
-        x = self.pool2(x)
-        x = self.flat1(x)
-        x = self.dp2(x)
-
-        x = self.fc1(x)
-        x = self.relu3(x)
-        x = self.dp3(x)
-
-        x = self.fc2(x)
-
-        return x
+    def setup(self, file_name="model_weights.json"):
+        with open(file_name, "r") as f:
+            model_weights = json.load(f)
+            self.fc1.setup(model_weights["fc1"]["weight"], model_weights["fc1"]["bias"])
+            self.fc2.setup(model_weights["fc2"]["weight"], model_weights["fc2"]["bias"])
+            self.fc3.setup(model_weights["fc3"]["weight"], model_weights["fc3"]["bias"])

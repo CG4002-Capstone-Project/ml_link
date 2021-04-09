@@ -2,18 +2,10 @@ from intcomm import IntComm
 from ML import ML
 
 if __name__ == "__main__":
-    dance_model_path = "dnn_model.pth"
+    dance_model_path = "model_weights.json"
     dance_scaler_path = "dnn_std_scaler.bin"
-    pos_model_path = "pos_model.pth"
-    pos_scaler_path = "pos_scaler.bin"
 
-    ml = ML(
-        on_fpga=False,
-        dance_scaler_path=dance_scaler_path,
-        dance_model_path=dance_model_path,
-        pos_scaler_path=pos_scaler_path,
-        pos_model_path=pos_model_path,
-    )
+    ml = ML(dance_scaler_path=dance_scaler_path, dance_model_path=dance_model_path,)
 
     # change this according to your serial port
     # 0: "/dev/ttyACM0"

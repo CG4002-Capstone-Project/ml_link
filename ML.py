@@ -4,13 +4,7 @@ import random
 import numpy as np
 from joblib import load
 
-try:
-    import torch
-
-    from cnns import DNN, MCNN, PCNN, extract_raw_data_features
-except:
-    print("Torch import failed")
-
+from models import DNN, extract_raw_data_features
 
 TRANSITION_WINDOW = 40
 
@@ -42,37 +36,20 @@ activities = [
 
 class ML:
     def __init__(
-        self,
-        on_fpga,
-        dance_scaler_path,
-        pos_scaler_path,
-        dance_model_path="",
-        pos_model_path="",
+        self, dance_scaler_path, dance_model_path,
     ):
-        self.on_fpga = on_fpga
         self.reset()
-        self.load_scalers(dance_scaler_path, pos_scaler_path)
-        if not on_fpga:
-            self.load_models(dance_model_path, pos_model_path)
+        self.load_scalers(dance_scaler_path)
+        self.load_models(dance_model_path)
         self.set_pos([1, 2, 3])
 
-    def load_scalers(self, dance_scaler_path, pos_scaler_path):
+    def load_scalers(self, dance_scaler_path):
         self.dance_scaler = load(dance_scaler_path)
-        self.pos_scaler = load(pos_scaler_path)
 
-    def load_models(self, dance_model_path, pos_model_path):
-        if not self.on_fpga:
-            dance_model = DNN()
-            dance_model.load_state_dict(
-                torch.load(dance_model_path, map_location="cpu")
-            )
-            dance_model.eval()
-            self.dance_model = dance_model
-
-            pos_model = PCNN()
-            pos_model.load_state_dict(torch.load(pos_model_path, map_location="cpu"))
-            pos_model.eval()
-            self.pos_model = pos_model
+    def load_models(self, dance_model_path):
+        dance_model = DNN()
+        dance_model.setup(dance_model_path)
+        self.dance_model = dance_model
 
     def reset(self):
         self.data = [[], [], []]  # data for 3 dancers
@@ -104,34 +81,16 @@ class ML:
         )
         inp = extract_raw_data_features(inp)
         inp = self.dance_scaler.transform(inp)
-        # inp = np.array([np.array(samples).transpose()])
-        # num_instances, num_time_steps, num_features = inp.shape
-        # inp = np.reshape(inp, newshape=(-1, num_features))
-        # inp = self.dance_scaler.transform(inp)
-        # inp = np.reshape(inp, newshape=(num_instances, num_time_steps, num_features))
-        return inp
-
-    def scale_pos_data(self, samples):
-        inp = np.array([np.array(samples).transpose()])
-        num_instances, num_time_steps, num_features = inp.shape
-        inp = np.reshape(inp, newshape=(-1, num_features))
-        inp = self.pos_scaler.transform(inp)
-        inp = np.reshape(inp, newshape=(num_instances, num_time_steps, num_features))
         return inp
 
     def update_dance_pred(self, samples):
         if len(samples) >= POSITION_WINDOW + DANCE_SAMPLES:
             dance_samples = samples[-DANCE_SAMPLES:]
             dance_samples = self.scale_dance_data(dance_samples)
-
-            if not self.on_fpga:
-                inp = torch.tensor(dance_samples)
-                out = self.dance_model(inp.float())
-                self.preds = self.preds + out.detach().numpy()
-                if "DEBUG" in os.environ:
-                    print("Intermediate prediction", self.pred_dance_move())
-            else:
-                pass  # TODO FPGA PREDICTION HERE
+            out = self.dance_model(dance_samples)
+            self.preds = self.preds + out
+            if "DEBUG" in os.environ:
+                print("Intermediate prediction", self.pred_dance_move())
 
     def pred_dance_move(self):
         return activities[np.argmax(self.preds)]
