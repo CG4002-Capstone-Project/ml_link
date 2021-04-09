@@ -16,7 +16,7 @@ def load_data(file_name):
 def visualize_data(df):
     sns.set()
 
-    fig, ax = plt.subplots(1, 2)
+    fig, ax = plt.subplots(1, 3)
 
     sns.scatterplot(data=df, x="timestamp", y="ax", label="ax", ax=ax[0])
     sns.scatterplot(data=df, x="timestamp", y="ay", label="ay", ax=ax[0])
@@ -29,6 +29,12 @@ def visualize_data(df):
     sns.scatterplot(data=df, x="timestamp", y="gz", label="gz", ax=ax[1])
     ax[1].set(xlabel="readings", ylabel="gyroscope")
     ax[1].legend()
+
+    sns.scatterplot(data=df, x="timestamp", y="yaw", label="yaw", ax=ax[2])
+    sns.scatterplot(data=df, x="timestamp", y="pitch", label="pitch", ax=ax[2])
+    sns.scatterplot(data=df, x="timestamp", y="roll", label="roll", ax=ax[2])
+    ax[2].set(xlabel="readings", ylabel="angle")
+    ax[2].legend()
 
     plt.show()
 

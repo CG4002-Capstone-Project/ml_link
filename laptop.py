@@ -11,8 +11,8 @@ from intcomm import IntComm
 
 PORT = int(os.environ["DANCE_PORT"])
 DANCER_ID = int(os.environ["DANCER_ID"])
-IS_DASHBOARD = bool(os.environ["IS_DASHBOARD"])
-IS_EMG = bool(os.environ["IS_EMG"])
+IS_DASHBOARD = bool(int(os.environ["IS_DASHBOARD"]))
+IS_EMG = bool(int(os.environ["IS_EMG"]))
 
 HOST = "localhost"
 DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
@@ -36,34 +36,43 @@ class Laptop:
     def __init__(self):
         self.intcomm = IntComm(DANCER_ID)
         self.buffer = []
+        self.counter = 1
+        self.start_time = time.time()
 
     def collect_data(self):
         # data: #yaw,pitch,roll,accx,accy,accz,emg
         data = self.intcomm.get_line()
         try:
+            # display frequency
+            self.counter += 1
+            if self.counter % 100 == 0:
+                end_time = time.time()
+                logger.info(
+                    "Receiving data at %f Hz" % (100 / (end_time - self.start_time))
+                )
+                self.start_time = end_time
+
             if len(data) == 0 or data[0] != "#":
                 logger.error("Invalid data:", data)
                 raise "Invalid data"
 
             formatted_data = f"#{DANCER_ID},{data[1:]}\n"
-            logger.info(formatted_data)
+            logger.debug(formatted_data)
             self.buffer.append(formatted_data)
             if IS_DASHBOARD:
                 yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz, emg = data[
                     1:
                 ].split(",")
-                imu_msg = ",".join(
-                    [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
-                )
+                imu_msg = " ".join([gyrox, gyroy, gyroz, accx, accy, accz])
                 imu_msg = f"{str(DANCER_ID)}|{str(time.time())}|{imu_msg}|"
-                logger.info(f"imu_msg: {imu_msg}")
+                logger.debug(f"imu_msg: {imu_msg}")
                 channel.basic_publish(
                     exchange="", routing_key=DB_QUEUES[DANCER_ID], body=imu_msg,
                 )
 
                 if IS_EMG:
                     emg_msg = f"{str(time.time())}|{emg}"
-                    logger.info(f"emg_msg: {emg_msg}")
+                    logger.debug(f"emg_msg: {emg_msg}")
                     channel.basic_publish(exchange="", routing_key="emg", body=emg_msg)
 
         except:

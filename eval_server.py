@@ -14,12 +14,21 @@ import pandas as pd
 from Crypto.Cipher import AES
 
 # Week 13 test: 8 moves, so 33 in total = (8*4) + 1 (logout)
-# ACTIONS = ['gun', 'sidepump', 'hair', 'pointhigh', 'elbowkick', 'listen', 'dab', 'wipetable']
+ACTIONS = [
+    "gun",
+    "sidepump",
+    "hair",
+    "pointhigh",
+    "elbowkick",
+    "listen",
+    "dab",
+    "wipetable",
+]
 # Week 9 and 11 tests: 3 moves, repeated 4 times each = 12 moves.
-ACTIONS = ["gun", "sidepump", "hair"]
+# ACTIONS = ["gun", "sidepump", "hair"]
 POSITIONS = ["1 2 3", "3 2 1", "2 3 1", "3 1 2", "1 3 2", "2 1 3"]
 LOG_DIR = os.path.join(os.path.dirname(__file__), "evaluation_logs")
-NUM_MOVE_PER_ACTION = 3
+NUM_MOVE_PER_ACTION = 1
 N_TRANSITIONS = 1
 MESSAGE_SIZE = 3  # position, 1 action, sync
 
