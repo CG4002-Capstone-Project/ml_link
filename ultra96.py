@@ -18,9 +18,7 @@ from ML import ML
 IP_ADDRESS = os.environ["IP_ADDRESS"]
 EVAL_PORT = int(os.environ["EVAL_PORT"])
 DANCE_PORT = int(os.environ["DANCE_PORT"])
-IS_DASHBOARD = bool(os.environ["IS_DASHBOARD"])
-
-WINDOW_SIZE = 50
+IS_DASHBOARD = bool(int(os.environ["IS_DASHBOARD"]))
 
 
 # setup logging
@@ -62,6 +60,16 @@ class Server(LineReceiver):
     def lineReceived(self, line):
         line = line.decode()
         try:
+            # display frequency
+            self.persistent_data.counter += 1
+            if self.persistent_data.counter % 300 == 0:
+                end_time = time.time()
+                logger.info(
+                    "Receiving data at %f Hz"
+                    % (300 / (end_time - self.persistent_data.start_time))
+                )
+                self.persistent_data.start_time = end_time
+
             if line[0] != "#":
                 logger.error("Received invalid data", line)
                 return
@@ -94,15 +102,14 @@ class Server(LineReceiver):
             )
 
             if self.persistent_data.is_idle:
-                self.persistent_data.counter += 1
                 if self.persistent_data.counter % 100 == 0:
                     print("idling")
+                print(yaw, pitch, roll)
                 if abs(yaw) > 40 or abs(pitch) > 40 or abs(roll) > 40:
                     self.persistent_data.is_idle = False
                     print("starting")
                 return
 
-            # TODO: handle start and left and right
             self.persistent_data.ml.write_data(
                 dancer_id, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
             )
@@ -115,6 +122,7 @@ class Server(LineReceiver):
     def handleMainLogic(self, dancer_id):
         pred = self.persistent_data.ml.get_pred()
         if pred is not None:
+            logger.info(pred)
             dance_move, pos, sync_delay = pred
             mqueue.put((dance_move, pos, sync_delay))
 
@@ -125,11 +133,11 @@ class ServerFactory(Factory):
         self.num_dancers = 0  # number of connected dancers
         self.is_idle = True
         self.counter = 0
+        self.start_time = time.time()
         dance_model_path = "model_weights.json"
         dance_scaler_path = "dnn_std_scaler.bin"
         self.ml = ML(
-            dance_scaler_path=dance_scaler_path,
-            dance_model_path=dance_model_path,
+            dance_scaler_path=dance_scaler_path, dance_model_path=dance_model_path,
         )
 
     def buildProtocol(self, addr):
