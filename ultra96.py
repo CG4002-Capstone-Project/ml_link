@@ -104,7 +104,7 @@ class Server(LineReceiver):
 
             # TODO: handle start and left and right
             self.persistent_data.ml.write_data(
-                dancer_id, [yaw, pitch, roll, accx, accy, accz]
+                dancer_id, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
             )
 
             self.handleMainLogic(dancer_id)
@@ -128,7 +128,6 @@ class ServerFactory(Factory):
         dance_model_path = "model_weights.json"
         dance_scaler_path = "dnn_std_scaler.bin"
         self.ml = ML(
-            on_fpga=False,
             dance_scaler_path=dance_scaler_path,
             dance_model_path=dance_model_path,
         )
