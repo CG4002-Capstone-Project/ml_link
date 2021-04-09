@@ -104,7 +104,6 @@ class Server(LineReceiver):
             if self.persistent_data.is_idle:
                 if self.persistent_data.counter % 100 == 0:
                     print("idling")
-                print(yaw, pitch, roll)
                 if abs(yaw) > 40 or abs(pitch) > 40 or abs(roll) > 40:
                     self.persistent_data.is_idle = False
                     print("starting")
