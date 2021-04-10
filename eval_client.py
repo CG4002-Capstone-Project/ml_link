@@ -62,30 +62,24 @@ class Client(threading.Thread):
     # To encrypt the message, which is a string
     def encrypt_message(self, message):
         raw_message = "#" + message
-        print("raw_message: " + raw_message)
         padded_raw_message = raw_message + " " * (
             ENCRYPT_BLOCK_SIZE - (len(raw_message) % ENCRYPT_BLOCK_SIZE)
         )
-        print("padded_raw_message: " + padded_raw_message)
         iv = Random.new().read(AES.block_size)
         secret_key = bytes(str(self.key), encoding="utf8")
         cipher = AES.new(secret_key, AES.MODE_CBC, iv)
         encrypted_message = base64.b64encode(
             iv + cipher.encrypt(bytes(padded_raw_message, "utf8"))
         )
-        print("encrypted_message: ", encrypted_message)
         return encrypted_message
 
     # To send the message to the sever
     def send_message(self, message):
         encrypted_message = self.encrypt_message(message)
-        print("Sending message:", encrypted_message)
         self.socket.sendall(encrypted_message)
 
     def receive_dancer_position(self):
-        print("receive_dancer_position")
         dancer_position = self.socket.recv(1024)
-        print(dancer_position)
         msg = dancer_position.decode("utf8")
         return msg
 

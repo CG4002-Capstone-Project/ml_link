@@ -1,20 +1,18 @@
-import random
-
 import numpy as np
 from joblib import load
 
 from models import DNN, extract_raw_data_features
 
-TRANSITION_WINDOW = 30
+TRANSITION_WINDOW = 50
 
 # No. of samples to determine position
-POSITION_WINDOW = 40
+POSITION_WINDOW = 50
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
 
 # No. of samples altogether for dance
-DANCE_WINDOW = 180
+DANCE_WINDOW = 210
 
 activities = [
     "hair",
