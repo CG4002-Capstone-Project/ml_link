@@ -86,6 +86,12 @@ class ML:
             if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
                 continue
 
+            pitchs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 1]
+            pitchs = np.abs(pitchs)
+            is_dancing = np.sum(pitchs > 30) > 5
+            if is_dancing:
+                continue
+
             gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
 
             # indices of roll less than -25 (right) and greater than 25 (left)
