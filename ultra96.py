@@ -40,6 +40,7 @@ class Server(LineReceiver):
 
     def __init__(self, persistent_data):
         self.persistent_data = persistent_data
+        self.clearLineBuffer()
 
     def connectionMade(self):
         print("New dancer")
@@ -57,18 +58,26 @@ class Server(LineReceiver):
             % self.persistent_data.num_dancers
         )
 
+    def getFrequency(self):
+        self.persistent_data.counter += 1
+        if self.persistent_data.counter % 300 == 0:
+            end_time = time.time()
+            logger.info(
+                "Receiving data at %f Hz"
+                % (300 / (end_time - self.persistent_data.start_time))
+            )
+            self.persistent_data.start_time = end_time
+
+    def skipInitialReadings(self, dancer_id):
+        if self.persistent_data.skip_initial_readings_cnt[dancer_id] > 0:
+            self.persistent_data.skip_initial_readings_cnt[dancer_id] -= 1
+            return True
+        return False
+
     def lineReceived(self, line):
         line = line.decode()
         try:
-            # display frequency
-            self.persistent_data.counter += 1
-            if self.persistent_data.counter % 300 == 0:
-                end_time = time.time()
-                logger.info(
-                    "Receiving data at %f Hz"
-                    % (300 / (end_time - self.persistent_data.start_time))
-                )
-                self.persistent_data.start_time = end_time
+            self.getFrequency()
 
             if line[0] != "#":
                 logger.error("Received invalid data", line)
@@ -101,10 +110,13 @@ class Server(LineReceiver):
                 float(accz),
             )
 
+            if self.skipInitialReadings(dancer_id):
+                return
+
             if self.persistent_data.is_idle:
                 if self.persistent_data.counter % 100 == 0:
                     print("idling")
-                if abs(yaw) > 40 or abs(pitch) > 40 or abs(roll) > 40:
+                if abs(pitch) > 30:
                     self.persistent_data.is_idle = False
                     print("starting")
                 return
@@ -138,6 +150,7 @@ class ServerFactory(Factory):
         self.ml = ML(
             dance_scaler_path=dance_scaler_path, dance_model_path=dance_model_path,
         )
+        self.skip_initial_readings_cnt = [50, 50, 50]
 
     def buildProtocol(self, addr):
         return Server(self)
@@ -157,10 +170,33 @@ def swap_positions(positions, pos):
     elif pos == ["R", "L", "L"]:
         return [positions[1], positions[2], positions[0]]
     else:
-        return [positions[0], positions[1], positions[2]]
+        # handle invalid cases
+        if pos == ["S", "S", "L"]:
+            case1 = [positions[2], positions[1], positions[0]]
+            case2 = [positions[0], positions[2], positions[1]]
+            return random.choice([case1, case2])
+        elif pos == ["S", "L", "S"]:
+            case1 = [positions[1], positions[0], positions[2]]
+            return case1
+        elif pos == ["R", "S", "S"]:
+            case1 = [positions[1], positions[0], positions[2]]
+            case2 = [positions[2], positions[1], positions[0]]
+            return random.choice([case1, case2])
+        elif pos == ["S", "R", "S"]:
+            case1 = [positions[0], positions[2], positions[1]]
+            return case1
+        elif pos == ["S", "L", "L"]:
+            case1 = [positions[0], positions[1], positions[2]]
+            return case1
+        elif pos == ["R", "R", "S"]:
+            case1 = [positions[2], positions[0], positions[1]]
+            return case1
+        else:
+            return [positions[0], positions[1], positions[2]]
 
 
 def format_results(positions, dance_move, pos, sync_delay):
+    sync_delay = (random.random() if sync_delay == -1 else sync_delay) * 1000
     new_positions = swap_positions(positions, pos)
     accuracy = random.randrange(60, 100) / 100  # TODO: fixed if got time
     eval_results = f"{new_positions[0]} {new_positions[1]} {new_positions[2]}|{dance_move}|{sync_delay}|"

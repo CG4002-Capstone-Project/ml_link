@@ -9,7 +9,9 @@ SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 class IntComm:
     def __init__(self, serial_port):
         self.ser = serial.Serial(SERIAL_PORTS[serial_port], 115200, timeout=0.5)
-        self.ser.flushInput()
+        self.ser.reset_input_buffer()
+        self.ser.reset_output_buffer()
+        self.ser.flush()
         print("Opened serial port %s" % SERIAL_PORTS[serial_port])
 
     def get_line(self):
