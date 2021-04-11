@@ -136,6 +136,7 @@ class Server(LineReceiver):
             logger.info(pred)
             dance_move, pos, sync_delay = pred
             mqueue.put((dance_move, pos, sync_delay))
+            self.clearLineBuffer()
 
 
 # This class is used to store persistent data across connections

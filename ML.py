@@ -6,13 +6,13 @@ from models import DNN, extract_raw_data_features
 TRANSITION_WINDOW = 50
 
 # No. of samples to determine position
-POSITION_WINDOW = 50
+POSITION_WINDOW = 40
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
 
 # No. of samples altogether for dance
-DANCE_WINDOW = 210
+DANCE_WINDOW = 150
 
 activities = [
     "hair",
@@ -89,9 +89,8 @@ class ML:
             if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
                 continue
 
-            pitchs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 1]
-            pitchs = np.abs(pitchs)
-            is_dancing = np.sum(pitchs > 30) > 5
+            gzs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5][10:]
+            is_dancing = np.sum(np.abs(gzs) > 75) > 5
             if is_dancing:
                 continue
 
@@ -126,7 +125,7 @@ class ML:
         mx_samples = max([len(x) for x in self.data])
 
         if (
-            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 10
+            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 25
         ):  # 10 is a small buffer to account for network variation
             dance_move = self.pred_dance_move()
             pos = self.pred_position()
