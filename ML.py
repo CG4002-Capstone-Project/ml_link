@@ -71,11 +71,14 @@ class ML:
         return inputs
 
     def pred_dance_move(self):
-        length = [len(x) for x in self.data]
-        idx = length.index(max(length))
-        inputs = np.array(self.data[idx])[-DANCE_SAMPLES:]
-        inputs = self.scale_dance_data(inputs)
+        inputs = [
+            self.scale_dance_data(np.array(data)[-DANCE_SAMPLES:])
+            for data in self.data
+            if len(data) > TRANSITION_WINDOW + POSITION_WINDOW + DANCE_WINDOW // 2
+        ]
+        inputs = np.array(inputs)
         outputs = self.dance_model(inputs)
+        outputs = np.sum(outputs, axis=0)
         return activities[np.argmax(outputs)]
 
     def pred_position(self):
