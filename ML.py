@@ -92,18 +92,20 @@ class ML:
                 if sample.shape[0] < POSITION_WINDOW:
                     continue
 
-                gzs = sample[: POSITION_WINDOW, 5][10:]
+                gzs = sample[:POSITION_WINDOW, 5][10:]
                 is_dancing = np.sum(np.abs(gzs) > 75) > 5
                 if is_dancing:
                     continue
 
-                gxs = sample[: POSITION_WINDOW, 3]
+                gxs = sample[:POSITION_WINDOW, 3]
                 self.is_first_prediction = False
             else:
                 if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
                     continue
 
-                gzs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5][10:]
+                gzs = sample[
+                    TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5
+                ][10:]
                 is_dancing = np.sum(np.abs(gzs) > 75) > 5
                 if is_dancing:
                     continue
