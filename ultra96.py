@@ -12,7 +12,7 @@ from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 
-from eval_client import Client
+from eval_client import ACTIONS, Client
 from ML import ML
 
 IP_ADDRESS = os.environ["IP_ADDRESS"]
@@ -236,9 +236,16 @@ if __name__ == "__main__":
         my_client = Client(IP_ADDRESS, EVAL_PORT, group_id, secret_key)
         my_client.send_message("1 2 3" + "|" + "start" + "|" + "1.5" + "|")
         logger.info(f"received positions: {positions}")
+        counter = 1
         while True:
             while not mqueue.empty():
                 dance_move, pos, sync_delay = mqueue.get()
+
+                if counter == 33:
+                    dance_move = "logout"
+                elif counter < 33 and dance_move == "logout":
+                    dance_move = random.choice(ACTIONS)
+
                 logger.info(f"predictions: {(dance_move, pos, sync_delay)}")
                 eval_results, dashboard_results = format_results(
                     positions, dance_move, pos, sync_delay
@@ -254,6 +261,7 @@ if __name__ == "__main__":
                     )
                 positions = [int(position) for position in positions.split(" ")]
                 logger.info(f"received positions: {positions}")
+                counter += 1
 
     except KeyboardInterrupt:
         thread.join()

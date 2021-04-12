@@ -1,6 +1,6 @@
 import numpy as np
 from joblib import load
-from scipy.special import softmax
+from scipy import stats
 
 from models import DNN, extract_raw_data_features
 
@@ -80,9 +80,10 @@ class ML:
         ]
         inputs = np.array(inputs)
         outputs = self.dance_model(inputs)
-        outputs = softmax(outputs, axis=0)
-        outputs = np.sum(outputs, axis=0)
-        return activities[np.argmax(outputs)]
+        predictions = []
+        for output in outputs:
+            predictions.append(activities[np.argmax(output)])
+        return stats.mode(predictions)[0][0]
 
     def pred_position(self):
         pos = ["S", "S", "S"]  # S - still, L - left, R - right

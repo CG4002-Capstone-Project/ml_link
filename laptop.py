@@ -75,7 +75,9 @@ class Laptop:
                     emg_msg = f"{str(time.time())}|{emg}"
                     logger.debug(f"emg_msg: {emg_msg}")
                     channel.basic_publish(exchange="", routing_key="emg", body=emg_msg)
-
+        except KeyboardInterrupt:
+            print("Terminating")
+            sys.exit()
         except:
             logger.error(data)
             logger.error(traceback.print_exc())
