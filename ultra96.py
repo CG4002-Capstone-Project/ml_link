@@ -6,9 +6,9 @@ import threading
 import time
 import traceback
 from queue import SimpleQueue
-from scipy import stats
 
 import pika
+from scipy import stats
 from twisted.internet import reactor
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
