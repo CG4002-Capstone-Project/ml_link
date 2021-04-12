@@ -177,22 +177,8 @@ def swap_positions(positions, pos):
         return [positions[1], positions[2], positions[0]]
     else:
         # handle invalid cases
-        if pos == ["S", "S", "L"]:
-            case1 = [positions[2], positions[1], positions[0]]
-            case2 = [positions[0], positions[2], positions[1]]
-            return random.choice([case1, case2])
-        elif pos == ["S", "L", "S"]:
-            case1 = [positions[1], positions[0], positions[2]]
-            return case1
-        elif pos == ["R", "S", "S"]:
-            case1 = [positions[1], positions[0], positions[2]]
-            case2 = [positions[2], positions[1], positions[0]]
-            return random.choice([case1, case2])
-        elif pos == ["S", "R", "S"]:
-            case1 = [positions[0], positions[2], positions[1]]
-            return case1
-        elif pos == ["S", "L", "L"]:
-            case1 = [positions[0], positions[1], positions[2]]
+        if pos == ["S", "L", "L"]:
+            case1 = [positions[1], positions[2], positions[0]]
             return case1
         elif pos == ["R", "R", "S"]:
             case1 = [positions[2], positions[0], positions[1]]

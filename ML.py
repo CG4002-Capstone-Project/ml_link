@@ -12,7 +12,7 @@ POSITION_WINDOW = 40
 DANCE_SAMPLES = 60
 
 # No. of samples altogether for dance
-DANCE_WINDOW = 150
+DANCE_WINDOW = 210
 
 activities = [
     "hair",
