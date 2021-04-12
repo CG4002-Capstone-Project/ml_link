@@ -45,10 +45,14 @@ class ML:
         self.dance_model = dance_model
 
     def reset(self):
-        self.data = [[], [], []]  # data for 3 dancers
+        self.dance_data = [[], [], []]  # data for 3 dancers
+        self.position_data = [[], [], []]
 
-    def write_data(self, dancer_id, data):
-        self.data[dancer_id].append(data)
+    def write_data(self, dancer_id, data, data_type):
+        if data_type == 0:
+            self.dance_data[dancer_id].append(data)
+        else:
+            self.position_data[dancer_id].append(data)
 
     def scale_dance_data(self, samples):
         samples = np.array(samples)
@@ -74,73 +78,51 @@ class ML:
     def pred_dance_move(self):
         inputs = [
             self.scale_dance_data(np.array(data)[-DANCE_SAMPLES:])
-            for data in self.data
+            for data in self.dance_data
             if len(data) > TRANSITION_WINDOW + POSITION_WINDOW + DANCE_WINDOW // 2
         ]
         inputs = np.array(inputs)
         outputs = self.dance_model(inputs)
-        predictions = []
-        for output in outputs:
-            predictions.append(activities[np.argmax(output)])
+        predictions = [activities[np.argmax(output)] for output in outputs]
         return predictions
 
     def pred_position(self):
         pos = ["S", "S", "S"]  # S - still, L - left, R - right
 
         for i in range(3):
-            sample = np.array(self.data[i])
+            sample = np.array(self.position_data[i])
 
             if self.is_first_prediction:
                 if sample.shape[0] < POSITION_WINDOW:
                     continue
 
-                gzs = sample[:POSITION_WINDOW, 5][10:]
-                is_dancing = np.sum(np.abs(gzs) > 75) > 5
-                if is_dancing:
-                    continue
-
-                gxs = sample[:POSITION_WINDOW, 3]
-                self.is_first_prediction = False
+                gys = sample[:, 4]
             else:
                 if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
                     continue
 
-                gzs = sample[
-                    TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5
-                ][10:]
-                is_dancing = np.sum(np.abs(gzs) > 75) > 5
-                if is_dancing:
-                    continue
+                gys = sample[TRANSITION_WINDOW:, 4]
 
-                gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
-
-            # indices of roll less than -25 (right) and greater than 25 (left)
-            right_gxs_idxs, left_gxs_idxs = (
-                np.where((gxs < -50))[0],
-                np.where((gxs > 50))[0],
-            )
-
-            right_gxs_count, left_gxs_count = (
-                right_gxs_idxs.shape[0],
-                left_gxs_idxs.shape[0],
+            # indices of roll less than -50 (right) and greater than 50 (left)
+            right_gys_idxs, left_gys_idxs = (
+                np.where((gys < -50))[0],
+                np.where((gys > 50))[0],
             )
 
             # register a turn if more than 3 points are above threshold
-            if left_gxs_count >= 3 or right_gxs_count >= 3:
-                if left_gxs_count == 0:
-                    pos[i] = "R"
-                    continue
-                if right_gxs_count == 0:
+            if left_gys_idxs.shape[0] >= 5 or right_gys_idxs.shape[0] >= 5:
+                if right_gys_idxs.shape[0] == 0:
                     pos[i] = "L"
-                    continue
-
-                left_max, right_max = np.max(left_gxs_idxs), np.max(right_gxs_idxs)
-                pos[i] = "L" if left_max < right_max else "R"
-
+                elif left_gys_idxs.shape[0] == 0:
+                    pos[i] = "R"
+                else:
+                    left_idx_mean = np.mean(left_gys_idxs)
+                    right_idx_mean = np.mean(right_gys_idxs)
+                    pos[i] = "L" if left_idx_mean > right_idx_mean else "R"
         return pos
 
     def get_pred(self):
-        mx_samples = max([len(x) for x in self.data])
+        mx_samples = max([len(x) for x in self.dance_data])
 
         if (
             mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 25
@@ -153,7 +135,7 @@ class ML:
         return None
 
     def pred_sync_delay(self):
-        idxs = [self.get_start_index(self.data[i]) for i in range(3)]
+        idxs = [self.get_start_index(self.dance_data[i]) for i in range(3)]
         idxs = [idx for idx in idxs if idx is not None]
         sync_delay = np.max(idxs) - np.min(idxs)
         return -1 if sync_delay == 0 else sync_delay / 25

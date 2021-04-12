@@ -69,9 +69,9 @@ class Server(LineReceiver):
             )
             self.persistent_data.start_time = end_time
 
-    def skipInitialReadings(self, dancer_id):
-        if self.persistent_data.skip_initial_readings_cnt[dancer_id] > 0:
-            self.persistent_data.skip_initial_readings_cnt[dancer_id] -= 1
+    def skipInitialReadings(self, dancer_id, data_type):
+        if self.persistent_data.skip_initial_readings_cnt[dancer_id][data_type] > 0:
+            self.persistent_data.skip_initial_readings_cnt[dancer_id][data_type] -= 1
             return True
         return False
 
@@ -86,6 +86,7 @@ class Server(LineReceiver):
                 return
             (
                 dancer_id,
+                data_type,
                 yaw,
                 pitch,
                 roll,
@@ -111,8 +112,9 @@ class Server(LineReceiver):
                 float(accy),
                 float(accz),
             )
+            data_type = int(data_type)
 
-            if self.skipInitialReadings(dancer_id):
+            if self.skipInitialReadings(dancer_id, data_type):
                 return
 
             if self.persistent_data.is_idle:
@@ -126,7 +128,9 @@ class Server(LineReceiver):
                 return
 
             self.persistent_data.ml.write_data(
-                dancer_id, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz]
+                dancer_id,
+                [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz],
+                data_type,
             )
 
             self.handleMainLogic(dancer_id)
@@ -149,14 +153,14 @@ class ServerFactory(Factory):
         self.num_dancers = 0  # number of connected dancers
         self.is_idle = True
         self.counter = 0
-        self.init_counter = 12
+        self.init_counter = 24
         self.start_time = time.time()
         dance_model_path = "model_weights.json"
         dance_scaler_path = "dnn_std_scaler.bin"
         self.ml = ML(
             dance_scaler_path=dance_scaler_path, dance_model_path=dance_model_path,
         )
-        self.skip_initial_readings_cnt = [50, 50, 50]
+        self.skip_initial_readings_cnt = [[50, 50], [50, 50], [50, 50]]
 
     def buildProtocol(self, addr):
         return Server(self)

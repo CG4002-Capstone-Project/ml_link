@@ -8,7 +8,7 @@ if __name__ == "__main__":
     # 0: "/dev/ttyACM0"
     # 1: "/dev/ttyACM1"
     # 2: "/dev/ttyACM2"
-    intcomm = IntComm(0)
+    intcomm = IntComm(1)
     all_data = []
     print("Start")
     try:

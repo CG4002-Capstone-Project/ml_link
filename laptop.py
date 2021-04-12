@@ -13,6 +13,7 @@ PORT = int(os.environ["DANCE_PORT"])
 DANCER_ID = int(os.environ["DANCER_ID"])
 IS_DASHBOARD = bool(int(os.environ["IS_DASHBOARD"]))
 IS_EMG = bool(int(os.environ["IS_EMG"]))
+IS_POSITION = int(os.environ["IS_POSITION"])
 
 HOST = "localhost"
 DB_QUEUES = ["trainee_one_data", "trainee_two_data", "trainee_three_data"]
@@ -34,7 +35,7 @@ logger = logging.getLogger("ultra96")
 
 class Laptop:
     def __init__(self):
-        self.intcomm = IntComm(DANCER_ID)
+        self.intcomm = IntComm(IS_POSITION)
         self.buffer = []
         self.counter = 1
         self.start_time = time.time()
@@ -57,7 +58,7 @@ class Laptop:
                 logger.error("Invalid data:", data)
                 raise "Invalid data"
 
-            formatted_data = f"#{DANCER_ID},{data[1:]}\n"
+            formatted_data = f"#{DANCER_ID},{IS_POSITION},{data[1:]}\n"
             logger.debug(formatted_data)
             self.buffer.append(formatted_data)
             if IS_DASHBOARD:
