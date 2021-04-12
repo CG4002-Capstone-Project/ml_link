@@ -96,29 +96,29 @@ class ML:
                 if sample.shape[0] < POSITION_WINDOW:
                     continue
 
-                gys = sample[:, 4]
+                pitchs = sample[:, 1]
             else:
                 if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
                     continue
 
-                gys = sample[TRANSITION_WINDOW:, 4]
+                pitchs = sample[TRANSITION_WINDOW:, 1]
 
             # indices of roll less than -50 (right) and greater than 50 (left)
-            right_gys_idxs, left_gys_idxs = (
-                np.where((gys < -50))[0],
-                np.where((gys > 50))[0],
+            right_pitchs_idxs, left_pitchs_idxs = (
+                np.where((pitchs < -25))[0],
+                np.where((pitchs > 25))[0],
             )
 
             # register a turn if more than 3 points are above threshold
-            if left_gys_idxs.shape[0] >= 5 or right_gys_idxs.shape[0] >= 5:
-                if right_gys_idxs.shape[0] == 0:
-                    pos[i] = "L"
-                elif left_gys_idxs.shape[0] == 0:
+            if left_pitchs_idxs.shape[0] >= 5 or right_pitchs_idxs.shape[0] >= 5:
+                if right_pitchs_idxs.shape[0] == 0:
                     pos[i] = "R"
+                elif left_pitchs_idxs.shape[0] == 0:
+                    pos[i] = "L"
                 else:
-                    left_idx_mean = np.mean(left_gys_idxs)
-                    right_idx_mean = np.mean(right_gys_idxs)
-                    pos[i] = "L" if left_idx_mean > right_idx_mean else "R"
+                    left_idx_mean = np.mean(left_pitchs_idxs)
+                    right_idx_mean = np.mean(right_pitchs_idxs)
+                    pos[i] = "R" if left_idx_mean > right_idx_mean else "L"
         return pos
 
     def get_pred(self):
