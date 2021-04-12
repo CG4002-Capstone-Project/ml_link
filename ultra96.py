@@ -75,8 +75,9 @@ class Server(LineReceiver):
         return False
 
     def lineReceived(self, line):
-        line = line.decode()
         try:
+            line = line.decode()
+
             self.getFrequency()
 
             if line[0] != "#":

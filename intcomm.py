@@ -15,7 +15,9 @@ class IntComm:
         print("Opened serial port %s" % SERIAL_PORTS[serial_port])
 
     def get_line(self):
-        return self.ser.readline().decode().strip()
+        ln = self.ser.readline().decode().strip()
+        idx = ln.rfind("#")
+        return ln[idx:]
 
 
 if __name__ == "__main__":

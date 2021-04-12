@@ -41,8 +41,9 @@ class Laptop:
 
     def collect_data(self):
         # data: #yaw,pitch,roll,accx,accy,accz,emg
-        data = self.intcomm.get_line()
         try:
+            data = self.intcomm.get_line()
+
             # display frequency
             self.counter += 1
             if self.counter % 100 == 0:
