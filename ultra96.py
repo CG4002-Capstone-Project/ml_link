@@ -167,7 +167,7 @@ def swap_positions(positions, pos):
     elif pos == ["R", "L", "S"]:
         return [positions[1], positions[0], positions[2]]
     elif pos == ["R", "S", "L"]:
-        return [positions[2], positions[1], positions[1]]
+        return [positions[2], positions[1], positions[0]]
     elif pos == ["S", "R", "L"]:
         return [positions[0], positions[2], positions[1]]
     elif pos == ["R", "R", "L"]:

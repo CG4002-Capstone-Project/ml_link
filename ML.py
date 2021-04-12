@@ -1,5 +1,6 @@
 import numpy as np
 from joblib import load
+from scipy.special import softmax
 
 from models import DNN, extract_raw_data_features
 
@@ -79,6 +80,7 @@ class ML:
         ]
         inputs = np.array(inputs)
         outputs = self.dance_model(inputs)
+        outputs = softmax(outputs, axis=0)
         outputs = np.sum(outputs, axis=0)
         return activities[np.argmax(outputs)]
 
