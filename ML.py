@@ -6,13 +6,13 @@ from models import DNN, extract_raw_data_features
 TRANSITION_WINDOW = 50
 
 # No. of samples to determine position
-POSITION_WINDOW = 50
+POSITION_WINDOW = 40
 
 # No. of samples to determine dance move
 DANCE_SAMPLES = 60
 
 # No. of samples altogether for dance
-DANCE_WINDOW = 210
+DANCE_WINDOW = 150
 
 activities = [
     "hair",
@@ -34,6 +34,7 @@ class ML:
         self.reset()
         self.load_scalers(dance_scaler_path)
         self.load_models(dance_model_path)
+        self.is_first_prediction = True
 
     def load_scalers(self, dance_scaler_path):
         self.dance_scaler = load(dance_scaler_path)
@@ -71,11 +72,14 @@ class ML:
         return inputs
 
     def pred_dance_move(self):
-        length = [len(x) for x in self.data]
-        idx = length.index(max(length))
-        inputs = np.array(self.data[idx])[-DANCE_SAMPLES:]
-        inputs = self.scale_dance_data(inputs)
+        inputs = [
+            self.scale_dance_data(np.array(data)[-DANCE_SAMPLES:])
+            for data in self.data
+            if len(data) > TRANSITION_WINDOW + POSITION_WINDOW + DANCE_WINDOW // 2
+        ]
+        inputs = np.array(inputs)
         outputs = self.dance_model(inputs)
+        outputs = np.sum(outputs, axis=0)
         return activities[np.argmax(outputs)]
 
     def pred_position(self):
@@ -83,16 +87,30 @@ class ML:
 
         for i in range(3):
             sample = np.array(self.data[i])
-            if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
-                continue
 
-            pitchs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 1]
-            pitchs = np.abs(pitchs)
-            is_dancing = np.sum(pitchs > 30) > 5
-            if is_dancing:
-                continue
+            if self.is_first_prediction:
+                if sample.shape[0] < POSITION_WINDOW:
+                    continue
 
-            gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
+                gzs = sample[:POSITION_WINDOW, 5][10:]
+                is_dancing = np.sum(np.abs(gzs) > 75) > 5
+                if is_dancing:
+                    continue
+
+                gxs = sample[:POSITION_WINDOW, 3]
+                self.is_first_prediction = False
+            else:
+                if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
+                    continue
+
+                gzs = sample[
+                    TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5
+                ][10:]
+                is_dancing = np.sum(np.abs(gzs) > 75) > 5
+                if is_dancing:
+                    continue
+
+                gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
 
             # indices of roll less than -25 (right) and greater than 25 (left)
             right_gxs_idxs, left_gxs_idxs = (
@@ -123,7 +141,7 @@ class ML:
         mx_samples = max([len(x) for x in self.data])
 
         if (
-            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 10
+            mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 25
         ):  # 10 is a small buffer to account for network variation
             dance_move = self.pred_dance_move()
             pos = self.pred_position()

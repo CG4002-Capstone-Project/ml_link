@@ -8,10 +8,12 @@ import random
 import socket
 import threading
 import time
-#from tkinter import Label, Tk
 
 import pandas as pd
 from Crypto.Cipher import AES
+
+# from tkinter import Label, Tk
+
 
 # Week 13 test: 8 moves, so 33 in total = (8*4) + 1 (logout)
 ACTIONS = [
@@ -245,26 +247,26 @@ def main():
     my_server = Server(ip_addr, port_num, group_id)
     my_server.start()
 
-    #display_window = Tk()
-    #action_display = add_display_label(display_window, label=str(my_server.action))
-    #position_display = add_display_label(display_window, label=str(my_server.position))
-    #display_window.update()
+    # display_window = Tk()
+    # action_display = add_display_label(display_window, label=str(my_server.action))
+    # position_display = add_display_label(display_window, label=str(my_server.position))
+    # display_window.update()
     while (
         my_server.idx <= my_server.n_moves + 1 and not my_server.shutdown.is_set()
     ):  # Display new task
         if my_server.idx == my_server.n_moves + 1:
             print(my_server.dancer_positions)
             print("logout")
-            #action_display.config(text=str(my_server.idx) + ":" + "logout")
-            #position_display.config(text=" ".join(my_server.dancer_positions))
+            # action_display.config(text=str(my_server.idx) + ":" + "logout")
+            # position_display.config(text=" ".join(my_server.dancer_positions))
             if my_server.logout is True:
                 break
         else:
             print(my_server.dancer_positions)
             print(my_server.action)
-            #action_display.config(text=str(my_server.idx) + ":" + str(my_server.action))
-            #position_display.config(text=" ".join(my_server.dancer_positions))
-        #display_window.update()
+            # action_display.config(text=str(my_server.idx) + ":" + str(my_server.action))
+            # position_display.config(text=" ".join(my_server.dancer_positions))
+        # display_window.update()
         time.sleep(0.2)
 
 
