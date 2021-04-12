@@ -116,9 +116,11 @@ class Server(LineReceiver):
             if self.persistent_data.is_idle:
                 if self.persistent_data.counter % 100 == 0:
                     print("idling")
-                if abs(pitch) > 30:
-                    self.persistent_data.is_idle = False
-                    print("starting")
+                if abs(gyrox) > 50 or abs(gyroz) > 50:
+                    self.persistent_data.init_counter -= 1
+                    if self.persistent_data.init_counter == 0:
+                        self.persistent_data.is_idle = False
+                        print("starting")
                 return
 
             self.persistent_data.ml.write_data(
@@ -145,6 +147,7 @@ class ServerFactory(Factory):
         self.num_dancers = 0  # number of connected dancers
         self.is_idle = True
         self.counter = 0
+        self.init_counter = 12
         self.start_time = time.time()
         dance_model_path = "model_weights.json"
         dance_scaler_path = "dnn_std_scaler.bin"

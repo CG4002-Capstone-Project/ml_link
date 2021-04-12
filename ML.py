@@ -34,6 +34,7 @@ class ML:
         self.reset()
         self.load_scalers(dance_scaler_path)
         self.load_models(dance_model_path)
+        self.is_first_prediction = True
 
     def load_scalers(self, dance_scaler_path):
         self.dance_scaler = load(dance_scaler_path)
@@ -86,15 +87,28 @@ class ML:
 
         for i in range(3):
             sample = np.array(self.data[i])
-            if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
-                continue
 
-            gzs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5][10:]
-            is_dancing = np.sum(np.abs(gzs) > 75) > 5
-            if is_dancing:
-                continue
+            if self.is_first_prediction:
+                if sample.shape[0] < POSITION_WINDOW:
+                    continue
 
-            gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
+                gzs = sample[: POSITION_WINDOW, 5][10:]
+                is_dancing = np.sum(np.abs(gzs) > 75) > 5
+                if is_dancing:
+                    continue
+
+                gxs = sample[: POSITION_WINDOW, 3]
+                self.is_first_prediction = False
+            else:
+                if sample.shape[0] < TRANSITION_WINDOW + POSITION_WINDOW:
+                    continue
+
+                gzs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 5][10:]
+                is_dancing = np.sum(np.abs(gzs) > 75) > 5
+                if is_dancing:
+                    continue
+
+                gxs = sample[TRANSITION_WINDOW : TRANSITION_WINDOW + POSITION_WINDOW, 3]
 
             # indices of roll less than -25 (right) and greater than 25 (left)
             right_gxs_idxs, left_gxs_idxs = (
