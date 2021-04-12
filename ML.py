@@ -1,6 +1,5 @@
 import numpy as np
 from joblib import load
-from scipy import stats
 
 from models import DNN, extract_raw_data_features
 
@@ -83,7 +82,7 @@ class ML:
         predictions = []
         for output in outputs:
             predictions.append(activities[np.argmax(output)])
-        return stats.mode(predictions)[0][0]
+        return predictions
 
     def pred_position(self):
         pos = ["S", "S", "S"]  # S - still, L - left, R - right
@@ -146,11 +145,11 @@ class ML:
         if (
             mx_samples >= POSITION_WINDOW + DANCE_WINDOW + TRANSITION_WINDOW + 25
         ):  # 10 is a small buffer to account for network variation
-            dance_move = self.pred_dance_move()
+            dance_moves = self.pred_dance_move()
             pos = self.pred_position()
             sync_delay = self.pred_sync_delay()
             self.reset()
-            return dance_move, pos, sync_delay
+            return dance_moves, pos, sync_delay
         return None
 
     def pred_sync_delay(self):

@@ -6,6 +6,7 @@ import threading
 import time
 import traceback
 from queue import SimpleQueue
+from scipy import stats
 
 import pika
 from twisted.internet import reactor
@@ -137,8 +138,8 @@ class Server(LineReceiver):
         pred = self.persistent_data.ml.get_pred()
         if pred is not None:
             logger.info(pred)
-            dance_move, pos, sync_delay = pred
-            mqueue.put((dance_move, pos, sync_delay))
+            dance_moves, pos, sync_delay = pred
+            mqueue.put((dance_moves, pos, sync_delay))
             self.clearLineBuffer()
 
 
@@ -200,7 +201,7 @@ def swap_positions(positions, pos):
             return [positions[0], positions[1], positions[2]]
 
 
-def format_results(positions, dance_move, pos, sync_delay):
+def format_results(positions, dance_moves, pos, sync_delay):
     sync_delay = (random.random() if sync_delay == -1 else sync_delay) * 1000
     new_positions = swap_positions(positions, pos)
     accuracy = random.randrange(60, 100) / 100  # TODO: fixed if got time
@@ -239,7 +240,8 @@ if __name__ == "__main__":
         counter = 1
         while True:
             while not mqueue.empty():
-                dance_move, pos, sync_delay = mqueue.get()
+                dance_moves, pos, sync_delay = mqueue.get()
+                dance_move = stats.mode(dance_moves)[0][0]
 
                 if counter == 33:
                     dance_move = "logout"
