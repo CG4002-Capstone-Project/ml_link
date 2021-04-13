@@ -105,10 +105,9 @@ class ML:
 
             # indices of roll less than -50 (right) and greater than 50 (left)
             right_pitchs_idxs, left_pitchs_idxs = (
-                np.where((pitchs < -25))[0],
-                np.where((pitchs > 25))[0],
+                np.where((pitchs < -30))[0],
+                np.where((pitchs > 30))[0],
             )
-
             # register a turn if more than 3 points are above threshold
             if left_pitchs_idxs.shape[0] >= 5 or right_pitchs_idxs.shape[0] >= 5:
                 if right_pitchs_idxs.shape[0] == 0:

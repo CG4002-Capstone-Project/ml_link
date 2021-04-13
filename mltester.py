@@ -11,7 +11,7 @@ if __name__ == "__main__":
     # 0: "/dev/ttyACM0"
     # 1: "/dev/ttyACM1"
     # 2: "/dev/ttyACM2"
-    intcomm = IntComm(1)
+    intcomm = IntComm(0)
 
     while True:
         data = intcomm.get_line()
@@ -34,7 +34,12 @@ if __name__ == "__main__":
                 float(accy),
                 float(accz),
             )
-            ml.write_data(0, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz])
+            ml.write_data(
+                0, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz], 0
+            )
+            ml.write_data(
+                0, [yaw, pitch, roll, gyrox, gyroy, gyroz, accx, accy, accz], 1
+            )
             pred = ml.get_pred()
             if pred is not None:
                 print("Prediction", pred)

@@ -8,7 +8,7 @@ if __name__ == "__main__":
     # 0: "/dev/ttyACM0"
     # 1: "/dev/ttyACM1"
     # 2: "/dev/ttyACM2"
-    intcomm = IntComm(1)
+    intcomm = IntComm(0)
     all_data = []
     print("Start")
     try:
@@ -34,4 +34,4 @@ if __name__ == "__main__":
     df = pd.DataFrame(all_data)
     print(df.head())
     df.columns = ["yaw", "pitch", "roll", "gx", "gy", "gz", "ax", "ay", "az"]
-    df.to_csv("test.csv", sep=",")
+    df.to_csv("logout3.csv", sep=",")
