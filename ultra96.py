@@ -167,7 +167,7 @@ class ServerFactory(Factory):
 
 
 def swap_positions(positions, pos):
-    pos = [pos[positions[0]], pos[positions[1]], pos[positions[2]]]
+    pos = [pos[positions[0]-1], pos[positions[1]-1], pos[positions[2]-1]]
 
     if pos == ["S", "S", "S"]:  # 1
         return [positions[0], positions[1], positions[2]]
