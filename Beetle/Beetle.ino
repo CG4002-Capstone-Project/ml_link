@@ -142,7 +142,7 @@ void loop() {
   Serial.print(",");
   
   int checksum = int(ypr[0] * 180 / M_PI) ^ int(ypr[1] * 180 / M_PI) ^ int(ypr[2] * 180 / M_PI) ^ 
-    gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z ^ int(emg);
+    gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z ^ int(analogRead(EMG));
   Serial.println(checksum);
 
   Serial.print("\n");
