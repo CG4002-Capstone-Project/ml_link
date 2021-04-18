@@ -9,11 +9,11 @@ SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 def check(line):
     try:
         yaw, pitch, roll, gyrx, gyry, gyrz, accx, accy, accz, emg, cksum = line.split(",")
-        val = int(yaw) ^ int(pitch) ^ int(roll) ^ int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz) ^ int(emg)
+        val = int(yaw) ^ int(pitch) ^ int(roll) ^ int(gyrx) ^ int(gyry) ^ int(gyrz) ^ int(accx) ^ int(accy) ^ int(accz) ^ int(emg)
         line = ""
         if (val == int(cksum)):
             line = yaw + "," + pitch + "," + roll + "," + gyrx + "," + gyry + "," + gyrz + "," + 
-                accx + "," + accy + "," + accz + "," +emg
+                accx + "," + accy + "," + accz + "," + emg
             return line
         else:
             return line             
