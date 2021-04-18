@@ -64,7 +64,7 @@ void setup() {
   }
 
   Serial.println(F("\nSend any character to begin DMP programming and demo: "));
-  while (Serial.available() && Serial.read()); // empty buffer
+  while (Serial.available() && Serial.read()); 
   devStatus = mpu.dmpInitialize();
 
   // supply your own gyro offsets here, scaled for min sensitivity
@@ -139,10 +139,10 @@ void loop() {
 
   Serial.print(",");
   Serial.print(analogRead(EMG));
-   Serial.print(",");
+  Serial.print(",");
   
-  int checksum = (ypr[0] * 180 / M_PI) ^ (ypr[1] * 180 / M_PI) ^ ypr[2] * 180 / M_PI) ^ 
-    gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z;
+  int checksum = int(ypr[0] * 180 / M_PI) ^ int(ypr[1] * 180 / M_PI) ^ int(ypr[2] * 180 / M_PI) ^ 
+    gyro.x ^ gyro.y ^ gyro.z ^ aaReal.x ^ aaReal.y ^ aaReal.z ^ int(emg);
   Serial.println(checksum);
 
   Serial.print("\n");
@@ -150,3 +150,4 @@ void loop() {
   // Experimentally determined to send data at a reliable 25Hz
   delay(27);
 }
+
