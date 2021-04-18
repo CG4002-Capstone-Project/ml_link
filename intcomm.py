@@ -6,6 +6,18 @@ import serial
 SERIAL_PORTS = ["/dev/ttyACM0", "/dev/ttyACM1", "/dev/ttyACM2"]
 
 
+def check(line):
+    try:
+        yaw, pitch, roll, gyrx, gyry, gyrz, accx, accy, accz, emg, cksum = line.split(",")
+        val = int(yaw) ^ int(pitch) ^ int(roll) ^ int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz) ^ int(emg)
+        if (val == int(cksum)):
+            return True
+        else:
+            return False              
+    except Exception as e:
+        print (e)
+        return False
+
 class IntComm:
     def __init__(self, serial_port):
         self.ser = serial.Serial(SERIAL_PORTS[serial_port], 115200, timeout=0.5)
@@ -16,8 +28,11 @@ class IntComm:
 
     def get_line(self):
         ln = self.ser.readline().decode().strip()
-        idx = ln.rfind("#")
-        return ln[idx:]
+        if (check(ln[1:])):
+            print ("checksum passed")
+            return ln[1:]
+        else:
+            return self.get_line()
 
 
 if __name__ == "__main__":
