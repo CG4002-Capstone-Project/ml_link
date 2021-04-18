@@ -10,13 +10,16 @@ def check(line):
     try:
         yaw, pitch, roll, gyrx, gyry, gyrz, accx, accy, accz, emg, cksum = line.split(",")
         val = int(yaw) ^ int(pitch) ^ int(roll) ^ int(gyrx) ^ int(gyry) ^ int(gyz) ^ int(accx) ^ int(accy) ^ int(accz) ^ int(emg)
+        line = ""
         if (val == int(cksum)):
-            return True
+            line = yaw + "," + pitch + "," + roll + "," + gyrx + "," + gyry + "," + gyrz + "," + 
+                accx + "," + accy + "," + accz + "," +emg
+            return line
         else:
-            return False              
+            return line             
     except Exception as e:
         print (e)
-        return False
+        return line
 
 class IntComm:
     def __init__(self, serial_port):
@@ -24,13 +27,18 @@ class IntComm:
         self.ser.reset_input_buffer()
         self.ser.reset_output_buffer()
         self.ser.flush()
+        while True:
+            line = self.ser.readline()
+            if b"Send any character to begin DMP programming and demo:" in line:
+                self.ser.write("A".encode())
         print("Opened serial port %s" % SERIAL_PORTS[serial_port])
 
     def get_line(self):
         ln = self.ser.readline().decode().strip()
-        if (check(ln[1:])):
-            print ("checksum passed")
-            return ln[1:]
+        if (ln[0] == "#")
+            if (check(ln[1:]) != ""):
+                print ("checksum passed")
+                return ln
         else:
             return self.get_line()
 
